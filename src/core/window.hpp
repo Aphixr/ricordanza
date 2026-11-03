@@ -16,7 +16,7 @@ public:
 
     bool shouldClose() const;
 
-    void render();
+    void run();
 
 private:
 

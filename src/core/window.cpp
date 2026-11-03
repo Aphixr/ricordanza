@@ -40,11 +40,8 @@ bool Window::shouldClose() const
     return glfwWindowShouldClose(m_window);
 }
 
-void Window::render()
+void Window::run()
 {
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     glfwSwapBuffers(m_window);
     glfwPollEvents();
 }
