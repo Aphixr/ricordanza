@@ -6,8 +6,6 @@
 
 #include "../util/logger.hpp"
 
-Audio App::audio { "./contemplation.wav" };
-
 void App::init()
 {
     // for some reason, if you put this ImGui initialization code at the end of Window's constructor,
@@ -20,6 +18,23 @@ void App::init()
 
     ImGui_ImplGlfw_InitForOpenGL(window.m_window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
+
+    piano_roll.load_audio("contemplation.wav");
+}
+
+int App::get_window_width()
+{
+    return window_width;
+}
+
+int App::get_window_height()
+{
+    return window_height;
+}
+
+void App::on_render(const std::function<void()>& callback)
+{
+    on_render_callbacks.push_back(callback);
 }
 
 void App::run()
@@ -30,6 +45,11 @@ void App::run()
 
         glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        for (int i { 0 }; i < on_render_callbacks.size(); i++)
+        {
+            on_render_callbacks[i]();
+        }
 
         window.run();
     }

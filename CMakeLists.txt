@@ -14,6 +14,7 @@ include_directories(extern ${ONNXRUNTIME_DIR}/include)
 
 add_executable(Ricordanza
     src/core/app.cpp
+    src/core/piano_roll.cpp
     src/core/window.cpp
     src/dsp/analyzer.cpp
     src/gl/buffer.cpp
