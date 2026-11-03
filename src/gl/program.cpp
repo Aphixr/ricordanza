@@ -115,6 +115,11 @@ void Program::set_uniform_4i(std::string_view name, GLint v0, GLint v1, GLint v2
     glUniform4i(glGetUniformLocation(m_id, name.data()), v0, v1, v2, v3);
 }
 
+void Program::set_uniform_mat4(std::string_view name, GLfloat* value)
+{
+    glUniformMatrix4fv(glGetUniformLocation(m_id, name.data()), 1, GL_FALSE, value);
+}
+
 void Program::destroy_internal_shaders()
 {
     for (GLuint shader : m_shader_ids)

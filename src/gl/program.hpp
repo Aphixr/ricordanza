@@ -55,6 +55,8 @@ public:
 
     void set_uniform_4i(std::string_view name, GLint v0, GLint v1, GLint v2, GLint v3);
 
+    void set_uniform_mat4(std::string_view name, GLfloat* value);
+
 private:
 
     GLuint m_id;
