@@ -3,6 +3,7 @@
 #include <glad/glad.h>
 
 #include <string>
+#include <vector>
 
 #include "shader.hpp"
 
@@ -34,6 +35,8 @@ public:
 
     void attach(const Shader& shader);
 
+    void attach(ShaderType type, std::string_view source);
+
     void detach(const Shader& shader);
 
     void set_uniform_1f(std::string_view name, GLfloat v0);
@@ -55,6 +58,11 @@ public:
 private:
 
     GLuint m_id;
+
+    // keeps track of internally created shaders for proper deletion later
+    std::vector<GLuint> m_shader_ids;
+
+    void destroy_internal_shaders();
 
 };
 
