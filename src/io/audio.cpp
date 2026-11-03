@@ -1,6 +1,6 @@
 #include "audio.hpp"
 
-Audio::Audio(const std::string& path)
+Audio::Audio(std::string_view path)
     : m_path { path }
     , m_data { }
 {
@@ -27,7 +27,7 @@ Audio::Audio(const std::string& path)
     }
 
     Logger::info(
-        "successfully loaded '" + m_path + "' (" +
+        "successfully loaded audio file '" + m_path + "' (" +
         std::to_string((int)get_seconds() / 60) + " min " +
         std::to_string((int)get_seconds() % 60) + " sec)"
     );

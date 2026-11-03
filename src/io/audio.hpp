@@ -14,7 +14,7 @@ class Audio
 
 public:
 
-    Audio(const std::string& path);
+    Audio(std::string_view path);
 
     // get the vector of 32-bit floats
     const std::vector<float>& get_data() const;
