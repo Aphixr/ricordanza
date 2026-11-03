@@ -4,7 +4,7 @@
 #include <vector>
 #include <stdexcept>
 
-#include "miniaudio.h"
+#include <miniaudio/miniaudio.h>
 
 #include "file_load_failure_exception.hpp"
 #include "../util/logger.hpp"
