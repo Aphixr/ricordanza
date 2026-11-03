@@ -11,6 +11,7 @@ void Logger::info(const std::string& msg)
     if (msg != s_last_msg)
     {
         s_last_msg_log_count = 0;
+        s_last_msg = msg;
         std::cout << (s_was_used ? "\n" : "") + msg;
     }
     else
