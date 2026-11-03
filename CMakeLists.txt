@@ -12,6 +12,13 @@ add_executable(Ricordanza
     src/io/miniaudio.c
     src/util/logger.cpp
     src/main.cpp
+    extern/glad/glad.c
+    extern/imgui/imgui.cpp
+    extern/imgui/imgui_draw.cpp
+    extern/imgui/imgui_tables.cpp
+    extern/imgui/imgui_widgets.cpp
+    extern/imgui/imgui_impl_glfw.cpp
+    extern/imgui/imgui_impl_opengl3.cpp
 )
 
 target_link_libraries(Ricordanza m pthread dl fftw3f)
