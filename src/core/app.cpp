@@ -20,6 +20,8 @@ void App::init()
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
     piano_roll.load_audio("contemplation.wav");
+
+    glfwSetWindowSizeCallback(window.m_window, window_size_callback);
 }
 
 int App::get_window_width()
@@ -41,8 +43,6 @@ void App::run()
 {
     while (!window.shouldClose())
     {
-        Logger::info("running");
-
         glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -55,4 +55,11 @@ void App::run()
     }
 
     std::cout << std::endl;
+}
+
+void App::window_size_callback(GLFWwindow*, int width, int height)
+{
+    glViewport(0, 0, width, height);
+    window_width = width;
+    window_height = height;
 }

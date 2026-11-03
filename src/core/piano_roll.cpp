@@ -88,6 +88,9 @@ void PianoRoll::render()
     m_shader_program.use();
     m_vao.bind();
 
+    m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);
+    m_shader_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
+
     for (int i { 21 }; i <= 108; i++)
     {
         if (!is_white_key(i))
@@ -95,10 +98,9 @@ void PianoRoll::render()
             continue;
         }
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 2.f, 0.f));
-        model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, 100.f, 1.f));
+        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.f, 0.f));
+        model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, 0.14f * App::get_window_height(), 1.f));
         m_shader_program.set_uniform_4f("color", 0.9f, 0.9f, 0.9f, 1.f);
-        m_shader_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
         m_shader_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
@@ -110,10 +112,9 @@ void PianoRoll::render()
             continue;
         }
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 42.f, 0.f));
-        model = glm::scale(model, glm::vec3(get_black_key_width(), 64.f, 1.f));
+        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.04f * App::get_window_height(), 0.f));
+        model = glm::scale(model, glm::vec3(get_black_key_width(), 0.1f * App::get_window_height(), 1.f));
         m_shader_program.set_uniform_4f("color", 0.06f, 0.06f, 0.06f, 1.f);
-        m_shader_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
         m_shader_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }

@@ -33,7 +33,8 @@ private:
 
     inline static PianoRoll piano_roll { };
 
+    static void window_size_callback(GLFWwindow* _, int width, int height);
+
     App() = default;
 
 };
-
