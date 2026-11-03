@@ -1,12 +1,9 @@
-#include <iostream>
-
-#include "io/audio.hpp"
+#include "core/app.hpp"
 
 int main(int argc, char** argv)
 {
-    Audio audio { "./contemplation.wav" };
-
-    std::cout << std::endl;
+    App::init();
+    App::run();
 
     return 0;
 }
