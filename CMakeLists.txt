@@ -16,6 +16,10 @@ add_executable(Ricordanza
     src/core/app.cpp
     src/core/window.cpp
     src/dsp/analyzer.cpp
+    src/gl/buffer.cpp
+    src/gl/program.cpp
+    src/gl/shader.cpp
+    src/gl/vertex_array.cpp
     src/io/audio.cpp
     src/io/file_load_failure_exception.cpp
     src/io/miniaudio.c
