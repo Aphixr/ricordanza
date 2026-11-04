@@ -24,7 +24,7 @@ public:
 
     Transcriber(const std::string& model_path);
 
-    std::vector<Note> run(std::vector<float>& flat_mel, int num_frames, int hop_size);
+    std::vector<Note> run(const std::vector<float>& raw);
 
 private:
 
@@ -35,5 +35,14 @@ private:
     Ort::Session m_session;
 
     Ort::MemoryInfo m_memory_info;
+
+    // needed for basic pitch
+    inline static const int s_chunk_size { 43844 };
+
+    // needed for basic pitch
+    inline static const int s_frames_per_chunk { 172 };
+
+    // about 0.0115 seconds
+    inline static const float s_frame_duration { (float)s_chunk_size / 22050.f / s_frames_per_chunk };
 
 };

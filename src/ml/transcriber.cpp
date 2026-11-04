@@ -1,114 +1,147 @@
 #include "transcriber.hpp"
 
+using namespace std::literals;
+
 Transcriber::Transcriber(const std::string& model_path)
     : m_env { ORT_LOGGING_LEVEL_WARNING, "ricordanza" }
     , m_session { nullptr }
     , m_memory_info { Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault) }
 {
+    Logger::info("initializing onnx model '" + model_path + "'...");
+
     // limit to 1 thread
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(1);
 
     m_session = Ort::Session(m_env, model_path.c_str(), session_options);
 
-    Logger::info("successfully loaded ONNX model '" + model_path + "'");
+    Logger::info("done: initialized onnx model '" + model_path + "'");
 }
 
-std::vector<Note> Transcriber::run(std::vector<float>& flat_mel, int num_frames, int hop_size)
+std::vector<Note> Transcriber::run(const std::vector<float>& raw)
 {
-    // define the shape: 1 audio file, number of time chunks/frames, number of filters/freq-bins, 1 channel
-    std::vector<int64_t> input_shape = {1, num_frames, Analyzer::num_filters, 1};
+    Logger::info("converting raw audio data into vector of notes...");
 
-    // wrap the vector into an ONNX tensor (no copying occurs)
-    Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-        m_memory_info,
-        flat_mel.data(), 
-        flat_mel.size(), 
-        input_shape.data(), 
-        input_shape.size()
-    );
+    // define the input shape
+    std::vector<int64_t> input_shape = {1, s_chunk_size, 1};
 
+    // create the default allocator to handle the string memory
+    Ort::AllocatorWithDefaultOptions allocator;
+
+    // dynamically grab the exact input string baked into model
+    auto input_name_ptr = m_session.GetInputNameAllocated(0, allocator);
+    const char* input_names[] = { input_name_ptr.get() };
+
+    // dynamically grab the exact 3 output strings
+    auto out_note_ptr = m_session.GetOutputNameAllocated(0, allocator);
+    auto out_onset_ptr = m_session.GetOutputNameAllocated(1, allocator);
+    auto out_contour_ptr = m_session.GetOutputNameAllocated(2, allocator);
+
+    // to which output, but typically 0 = Note, 1 = Onset, 2 = Contour
     // "note": pitch probabilities
     // "onset": whether key was just struck
     // "contour": micro-pitch bending (ignore)
-    const char* input_names[] { "input" };
-    const char* output_names[] { "note", "onset", "contour" };
+    const char* output_names[] = { out_note_ptr.get(), out_onset_ptr.get(), out_contour_ptr.get() };
 
-    // run neural network
-    std::vector<Ort::Value> output_tensors = m_session.Run(Ort::RunOptions{nullptr}, input_names, &input_tensor, 1, output_names, 3);
-
-    // get note and onset probabilities
-    // shape for both: [1, num_frames, 88]
-    float* frame_probs = output_tensors[0].GetTensorMutableData<float>();
-    float* onset_probs = output_tensors[1].GetTensorMutableData<float>();
+    Logger::info("input names: "s + input_names[0]);
+    Logger::info("output names: "s + output_names[0] + ", "s + output_names[1] + ", "s + output_names[2]);
 
     std::vector<Note> notes;
 
-    const float frame_duration { (float)hop_size / 44100.f };
+    // is the current key being held?
+    bool is_held[88] { false };
 
-    // look at one key at a time across the entire length of the audio
-    for (int key { 0 }; key < 88; key++)
+    float start_time[88] { 0.f };
+    float max_frame_prob[88] { 0.f };
+
+    // loop through entire audio in chunks
+    for (size_t offset { 0 }; offset + s_chunk_size <= raw.size(); offset += s_chunk_size)
     {
-        // is the current key being held?
-        bool is_held { false };
+        // chunk start time in seconds
+        float chunk_start_time { (float)offset / 22050.f };
 
-        float start_time { 0.f };
-        float max_frame_prob { 0.f };
+        Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
+            m_memory_info,
+            const_cast<float*>(raw.data() + offset),
+            s_chunk_size,
+            input_shape.data(),
+            input_shape.size()
+        );
+        
+        // run neural network
+        std::vector<Ort::Value> output_tensors = m_session.Run(
+            Ort::RunOptions{nullptr},
+            input_names, &inputTensor, 1,
+            output_names, 3
+        );
 
-        // loop through time
-        for (int frame { 0 }; frame < num_frames; frame++)
+        // get note and onset probabilities
+        float* frame_probs = output_tensors[0].GetTensorMutableData<float>();
+        float* onset_probs = output_tensors[1].GetTensorMutableData<float>();
+
+        // look at one key at a time
+        for (int key { 0 }; key < 88; key++)
         {
-            int i { 88 * frame + key };
-            float frame_prob { frame_probs[i] };
-            float onset_prob { onset_probs[i] };
-
-            if (!is_held)
+            // loop through time
+            for (int frame { 0 }; frame < s_frames_per_chunk; frame++)
             {
-                if (frame_prob >= 0.5f || onset_prob >= 0.5f)
-                {
-                    is_held = true;
-                    start_time = frame * frame_duration;
-                    max_frame_prob = frame_prob;
-                }
-            }
-            else
-            {
-                if (frame_prob > max_frame_prob)
-                {
-                    max_frame_prob = frame_prob;
-                }
-                if (frame_prob < 0.3f)
-                {
-                    is_held = false;
-                    float end_time = frame * frame_duration;
+                int i { 88 * frame + key };
+                float frame_prob { frame_probs[i] };
+                float onset_prob { onset_probs[i] };
 
-                    // if the note was held for a very short amount of time
-                    // ignore, probably was a little glitch
-                    // otherwise, store it
-                    if (end_time - start_time > 0.04f)
+                if (!is_held[key])
+                {
+                    if (onset_prob >= 0.5f || frame_prob >= 0.5f)
                     {
-                        notes.push_back({
-                            key + 21,       // midi pitch
-                            start_time,
-                            end_time,
-                            max_frame_prob  // amplitude
-                        });
+                        is_held[key] = true;
+                        start_time[key] = chunk_start_time + (frame * s_frame_duration);
+                        max_frame_prob[key] = frame_prob;
+                    }
+                }
+                else
+                {
+                    if (frame_prob > max_frame_prob[key])
+                    {
+                        max_frame_prob[key] = frame_prob;
+                    }
+                    if (frame_prob < 0.15f)
+                    {
+                        is_held[key] = false;
+                        float end_time = chunk_start_time + (frame * s_frame_duration);
+
+                        // if the note was held for a very short amount of time
+                        // ignore, probably was a little glitch
+                        // otherwise, store it
+                        if (end_time - start_time[key] > 0.06f)
+                        {
+                            notes.push_back({
+                                key + 21,           // midi pitch
+                                start_time[key],
+                                end_time,
+                                max_frame_prob[key] // amplitude
+                            });
+                        }
                     }
                 }
             }
-
-            // if a note is still held when the audio ends, store it
-            if (is_held)
-            {
-                notes.push_back({
-                    key + 21,
-                    start_time,
-                    frame * frame_duration,
-                    max_frame_prob
-                });
-            }
         }
     }
+
+    for (int key { 0 }; key < 88; key++)
+    {
+        // if a note is still held when the audio ends, store it
+        if (is_held[key])
+        {
+            notes.push_back({
+                key + 21,
+                start_time[key],
+                raw.size() / 22050.f,
+                max_frame_prob[key]
+            });
+        }
+    }
+
+    Logger::info("done: converting raw audio data into vector of notes");
 
     return notes;
 }
