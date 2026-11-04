@@ -19,6 +19,8 @@ public:
 
     static void on_render(const std::function<void()>& callback);
 
+    static bool is_key_pressed(int glfw_key_code);
+
     static void run();
 
 private:

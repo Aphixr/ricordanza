@@ -19,9 +19,9 @@ void App::init()
     ImGui_ImplGlfw_InitForOpenGL(window.m_window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
-    piano_roll.load_audio("contemplation.wav");
-
     glfwSetWindowSizeCallback(window.m_window, window_size_callback);
+
+    piano_roll.load_audio("contemplation.wav");
 }
 
 int App::get_window_width()
@@ -37,6 +37,11 @@ int App::get_window_height()
 void App::on_render(const std::function<void()>& callback)
 {
     on_render_callbacks.push_back(callback);
+}
+
+bool App::is_key_pressed(int key_code)
+{
+    return glfwGetKey(window.m_window, key_code) == GLFW_PRESS;
 }
 
 void App::run()
