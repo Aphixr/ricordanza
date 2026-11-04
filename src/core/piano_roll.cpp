@@ -1,8 +1,13 @@
 #include "piano_roll.hpp"
 
+#include <vector>
+
 #include "app.hpp"
 #include "../gl/shader.hpp"
 #include "../util/pitch.hpp"
+#include "../ml/transcriber.hpp"
+
+using namespace std::literals;
 
 const char* vert_src =
 R"glsl(
@@ -13,6 +18,20 @@ R"glsl(
     void main()
     {
         gl_Position = projection * model * vec4(a_pos, 0.0, 1.0);
+    }
+)glsl";
+
+const char* vert_inst_src =
+R"glsl(
+    #version 330 core
+    layout (location = 0) in vec2 a_pos;
+    // layout (location = 1) in vec4 a_inst_box; // x, y, width, height
+    layout (location = 1) in mat4 a_model;
+    uniform mat4 projection;
+    void main()
+    {
+        // gl_Position = projection * vec4((a_pos * vec2(10, 10)) + a_inst_box.xy, 0.0, 1.0);
+        gl_Position = projection * a_model * vec4(a_pos, 0.0, 1.0);
     }
 )glsl";
 
@@ -39,15 +58,20 @@ float vertices[]
 
 PianoRoll::PianoRoll()
     : m_audio { nullptr }
-    , m_time { 0.f }
-    , m_shader_program { }
+    , m_notes { }
+    , m_time { 30.f }
+    , m_scroll_vel { 0.f }
+    , m_piano_program { }
+    , m_notes_program { }
     , m_vao { }
     , m_vbo { GL_ARRAY_BUFFER }
+    , m_notes_vbo { GL_ARRAY_BUFFER }
+    , m_inst_vbo { GL_ARRAY_BUFFER }
     , m_projection { glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f) }
 {
-    m_shader_program.attach(gl::ShaderType::Vertex, vert_src);
-    m_shader_program.attach(gl::ShaderType::Fragment, frag_src);
-    m_shader_program.link();
+    m_piano_program.attach(gl::ShaderType::Vertex, vert_src);
+    m_piano_program.attach(gl::ShaderType::Fragment, frag_src);
+    m_piano_program.link();
 
     m_vao.bind();
     m_vbo.bind();
@@ -56,6 +80,25 @@ PianoRoll::PianoRoll()
     m_vao.enable_attribute_array(0);
     m_vao.unbind();
     m_vbo.unbind();
+
+    m_notes_program.attach(gl::ShaderType::Vertex, vert_inst_src);
+    m_notes_program.attach(gl::ShaderType::Fragment, frag_src);
+    m_notes_program.link();
+
+    m_notes_vao.bind();
+    m_notes_vbo.bind();
+    m_notes_vbo.data(sizeof(vertices), vertices, GL_STATIC_DRAW);
+    m_notes_vao.attribute(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    m_notes_vao.enable_attribute_array(0);
+    m_inst_vbo.bind();
+    for (int i = 1; i < 5; i++)
+    {
+        m_notes_vao.enable_attribute_array(i);
+        m_notes_vao.attribute(i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)((i - 1) * sizeof(glm::vec4)));
+        m_notes_vao.attribute_divisor(i, 1);
+    }
+    m_notes_vao.unbind();
+    m_inst_vbo.unbind();
 
     App::on_render([this]()
     {
@@ -76,6 +119,9 @@ void PianoRoll::load_audio(std::string_view path)
         delete m_audio;
     }
     m_audio = new Audio(path);
+    Transcriber transcriber { "basic_pitch.onnx" };
+    m_notes = transcriber.run(m_audio->get_data());
+    Logger::info("transcribed raw data into vector of "s + std::to_string(m_notes.size()) + " notes"s);
 }
 
 float PianoRoll::get_time() const
@@ -85,11 +131,69 @@ float PianoRoll::get_time() const
 
 void PianoRoll::render()
 {
-    m_shader_program.use();
-    m_vao.bind();
+    if (App::is_key_pressed(GLFW_KEY_LEFT) || App::is_key_pressed(GLFW_KEY_DOWN))
+    {
+        m_scroll_vel = -0.2f;
+        Logger::info("timestamp: "s + std::to_string(m_time));
+    }
+    if (App::is_key_pressed(GLFW_KEY_RIGHT) || App::is_key_pressed(GLFW_KEY_UP))
+    {
+        m_scroll_vel = +0.2f;
+        Logger::info("timestamp: "s + std::to_string(m_time));
+    }
+
+    m_time += m_scroll_vel;
+    m_scroll_vel *= 0.9f;
 
     m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);
-    m_shader_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
+
+    // render note blocks
+
+    // std::vector<glm::vec4> inst_data;
+    std::vector<glm::mat4> inst_data;
+    inst_data.reserve(m_notes.size());
+
+    const float keyboard_y { 0.14f * App::get_window_height() };
+
+    for (const Note& note : m_notes) {
+        if (note.midi_pitch < 21 || note.midi_pitch > 108)
+        {
+            continue;
+        }
+
+        // dimensions of note block
+        float x { midi_pitch_to_horizontal_position(note.midi_pitch) };
+        float y { keyboard_y + ((note.start_time - m_time) * pixels_per_second) };
+        float width { is_white_key(note.midi_pitch) ? get_white_key_width() - 1 : get_black_key_width() };
+        float height { (note.end_time - note.start_time) * pixels_per_second };
+
+        // culling, skip notes completely off screen
+        if (y > App::get_window_height() || y + height < keyboard_y)
+        {
+            continue;
+        }
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(x + 1.f, y, 0.f));
+        model = glm::scale(model, glm::vec3(width - 2.f, height, 1.f));
+        inst_data.push_back(model);
+    }
+
+    m_notes_program.use();
+    m_notes_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
+    m_notes_program.set_uniform_4f("color", 0.9f, 0.7f, 0.1f, 0.8f);
+    m_notes_vao.bind();
+    m_inst_vbo.bind();
+    // m_notes_vbo.data(inst_data.size() * sizeof(glm::vec4), inst_data.data(), GL_DYNAMIC_DRAW);
+    m_inst_vbo.data(inst_data.size() * sizeof(glm::mat4), inst_data.data(), GL_STATIC_DRAW);
+    glDrawArraysInstanced(GL_TRIANGLES, 0, 6, inst_data.size());
+    m_inst_vbo.unbind();
+    m_notes_vao.unbind();
+
+    // render piano keyboard
+
+    m_piano_program.use();
+    m_piano_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
+    m_vao.bind();
 
     for (int i { 21 }; i <= 108; i++)
     {
@@ -100,8 +204,8 @@ void PianoRoll::render()
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.f, 0.f));
         model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, 0.14f * App::get_window_height(), 1.f));
-        m_shader_program.set_uniform_4f("color", 0.9f, 0.9f, 0.9f, 1.f);
-        m_shader_program.set_uniform_mat4("model", glm::value_ptr(model));
+        m_piano_program.set_uniform_4f("color", 0.9f, 0.9f, 0.9f, 1.f);
+        m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
@@ -114,8 +218,8 @@ void PianoRoll::render()
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.04f * App::get_window_height(), 0.f));
         model = glm::scale(model, glm::vec3(get_black_key_width(), 0.1f * App::get_window_height(), 1.f));
-        m_shader_program.set_uniform_4f("color", 0.06f, 0.06f, 0.06f, 1.f);
-        m_shader_program.set_uniform_mat4("model", glm::value_ptr(model));
+        m_piano_program.set_uniform_4f("color", 0.06f, 0.06f, 0.06f, 1.f);
+        m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 

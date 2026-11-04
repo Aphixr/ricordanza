@@ -8,6 +8,7 @@
 
 #include "../io/audio.hpp"
 #include "../gl/glacier.hpp"
+#include "../ml/transcriber.hpp"
 
 class PianoRoll
 {
@@ -24,6 +25,8 @@ public:
 
     void render();
 
+    inline static const float pixels_per_second { 100.f };
+
     // returns x position of left edge of key
     static float midi_pitch_to_horizontal_position(unsigned pitch);
 
@@ -38,14 +41,27 @@ private:
     // loaded audio data
     Audio* m_audio;
 
+    // notes
+    std::vector<Note> m_notes;
+
     // represents the current playback time in seconds
     float m_time;
 
-    gl::Program m_shader_program;
+    float m_scroll_vel;
+
+    gl::Program m_piano_program;
+
+    gl::Program m_notes_program;
 
     gl::VertexArray m_vao;
 
+    gl::VertexArray m_notes_vao;
+
     gl::Buffer m_vbo;
+
+    gl::Buffer m_notes_vbo;
+
+    gl::Buffer m_inst_vbo;
 
     glm::mat4 m_projection;
 
