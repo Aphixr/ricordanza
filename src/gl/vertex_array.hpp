@@ -26,6 +26,8 @@ public:
 
     void disable_attribute_array(GLuint index);
 
+    void attribute_divisor(GLuint index, GLuint divisor);
+
     void bind();
 
     void unbind();

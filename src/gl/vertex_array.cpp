@@ -44,6 +44,11 @@ void VertexArray::disable_attribute_array(GLuint index)
     glDisableVertexAttribArray(index);
 }
 
+void VertexArray::attribute_divisor(GLuint index, GLuint divisor)
+{
+    glVertexAttribDivisor(index, divisor);
+}
+
 void VertexArray::bind()
 {
     glBindVertexArray(m_id);
