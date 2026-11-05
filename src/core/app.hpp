@@ -2,6 +2,8 @@
 
 #include <functional>
 #include <vector>
+#include <unordered_set>
+#include <utility>
 
 #include "window.hpp"
 #include "piano_roll.hpp"
@@ -19,6 +21,8 @@ public:
 
     static void on_render(const std::function<void()>& callback);
 
+    static void on_key_down(int glfw_key_code, const std::function<void()>& callback);
+
     static bool is_key_pressed(int glfw_key_code);
 
     static void run();
@@ -31,11 +35,15 @@ private:
 
     inline static Window window { "Ricordanza", window_width, window_height };
 
-    inline static std::vector<std::function<void()>> on_render_callbacks;
+    inline static std::vector<std::function<void()>> on_render_callbacks { };
+
+    inline static std::vector<std::pair<int, std::function<void ()>>> on_key_down_callbacks { };
 
     inline static PianoRoll piano_roll { };
 
-    static void window_size_callback(GLFWwindow* _, int width, int height);
+    static void window_size_callback(GLFWwindow*, int width, int height);
+
+    static void key_down_callback(GLFWwindow*, int key, int scancode, int action, int mods);
 
     App() = default;
 
