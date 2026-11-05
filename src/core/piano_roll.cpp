@@ -3,48 +3,11 @@
 #include <vector>
 
 #include "app.hpp"
-#include "../gl/shader.hpp"
+#include "../io/shader_manager.hpp"
 #include "../util/pitch.hpp"
 #include "../ml/transcriber.hpp"
 
 using namespace std::literals;
-
-const char* vert_src =
-R"glsl(
-    #version 330 core
-    layout (location = 0) in vec2 a_pos;
-    uniform mat4 model;
-    uniform mat4 projection;
-    void main()
-    {
-        gl_Position = projection * model * vec4(a_pos, 0.0, 1.0);
-    }
-)glsl";
-
-const char* vert_inst_src =
-R"glsl(
-    #version 330 core
-    layout (location = 0) in vec2 a_pos;
-    // layout (location = 1) in vec4 a_inst_box; // x, y, width, height
-    layout (location = 1) in mat4 a_model;
-    uniform mat4 projection;
-    void main()
-    {
-        // gl_Position = projection * vec4((a_pos * vec2(10, 10)) + a_inst_box.xy, 0.0, 1.0);
-        gl_Position = projection * a_model * vec4(a_pos, 0.0, 1.0);
-    }
-)glsl";
-
-const char* frag_src =
-R"glsl(
-    #version 330 core
-    out vec4 frag_color;
-    uniform vec4 color;
-    void main()
-    {
-        frag_color = color;
-    }
-)glsl";
 
 float vertices[]
 {
@@ -69,8 +32,8 @@ PianoRoll::PianoRoll()
     , m_inst_vbo { GL_ARRAY_BUFFER }
     , m_projection { glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f) }
 {
-    m_piano_program.attach(gl::ShaderType::Vertex, vert_src);
-    m_piano_program.attach(gl::ShaderType::Fragment, frag_src);
+    m_piano_program.attach(ShaderManager::get("../res/default.vert.glsl"));
+    m_piano_program.attach(ShaderManager::get("../res/solid.frag.glsl"));
     m_piano_program.link();
 
     m_vao.bind();
@@ -81,8 +44,8 @@ PianoRoll::PianoRoll()
     m_vao.unbind();
     m_vbo.unbind();
 
-    m_notes_program.attach(gl::ShaderType::Vertex, vert_inst_src);
-    m_notes_program.attach(gl::ShaderType::Fragment, frag_src);
+    m_notes_program.attach(ShaderManager::get("../res/instance.vert.glsl"));
+    m_notes_program.attach(ShaderManager::get("../res/solid.frag.glsl"));
     m_notes_program.link();
 
     m_notes_vao.bind();

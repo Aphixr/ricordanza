@@ -24,6 +24,7 @@ add_executable(Ricordanza
     src/io/audio.cpp
     src/io/file_load_failure_exception.cpp
     src/io/miniaudio.c
+    src/io/shader_manager.cpp
     src/ml/transcriber.cpp
     src/util/logger.cpp
     src/main.cpp
