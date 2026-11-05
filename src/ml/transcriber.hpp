@@ -11,7 +11,7 @@
 
 struct Note
 {
-    int midi_pitch;     // 0-87 (A0-C8)
+    int midi_pitch;     // 0-127, or 21-108 (A0-C8)
     float start_time;   // in seconds
     float end_time;     // in seconds
     float amplitude;    // 0-1
@@ -30,11 +30,27 @@ private:
 
     std::vector<int64_t> m_input_shape;
 
+    std::string m_input_name;
+
+    std::string m_note_name;
+
+    std::string m_onset_name;
+
+    std::string m_contour_name;
+
     Ort::Env m_env;
     
     Ort::Session m_session;
 
     Ort::MemoryInfo m_memory_info;
+
+    // [key 0-87][frame]
+    std::vector<std::vector<float>> m_frame_probs;
+
+    // [key 0-87][frame]
+    std::vector<std::vector<float>> m_onset_probs;
+
+    void generate_probabilities(const std::vector<float>& raw);
 
     // needed for basic pitch
     inline static const int s_chunk_size { 43844 };
