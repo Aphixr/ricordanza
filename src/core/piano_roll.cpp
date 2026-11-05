@@ -102,7 +102,7 @@ PianoRoll::PianoRoll()
 
     App::on_render([this]()
     {
-        this->render();
+        render();
     });
 }
 
@@ -118,10 +118,25 @@ void PianoRoll::load_audio(std::string_view path)
     {
         delete m_audio;
     }
+    
     m_audio = new Audio(path);
+
     Transcriber transcriber { "basic_pitch.onnx" };
     m_notes = transcriber.run(m_audio->get_data());
+
     Logger::info("transcribed raw data into vector of "s + std::to_string(m_notes.size()) + " notes"s);
+
+    App::on_key_down(GLFW_KEY_SPACE, [this]()
+    {
+        if (!m_audio->is_playing())
+        {
+            m_audio->play(m_time);
+        }
+        else
+        {
+            m_audio->pause();
+        }
+    });
 }
 
 float PianoRoll::get_time() const
@@ -131,19 +146,30 @@ float PianoRoll::get_time() const
 
 void PianoRoll::render()
 {
-    if (App::is_key_pressed(GLFW_KEY_LEFT) || App::is_key_pressed(GLFW_KEY_DOWN))
+    if (!m_audio->is_playing())
     {
-        m_scroll_vel = -0.2f;
-        Logger::info("timestamp: "s + std::to_string(m_time));
+        if (App::is_key_pressed(GLFW_KEY_LEFT) || App::is_key_pressed(GLFW_KEY_DOWN))
+        {
+            m_scroll_vel = -0.2f;
+            Logger::update("timestamp", "timestamp: "s + std::to_string(m_time));
+        }
+        if (App::is_key_pressed(GLFW_KEY_RIGHT) || App::is_key_pressed(GLFW_KEY_UP))
+        {
+            m_scroll_vel = +0.2f;
+            Logger::update("timestamp", "timestamp: "s + std::to_string(m_time));
+        }
+        m_time += m_scroll_vel;
+        m_scroll_vel *= 0.8f;
     }
-    if (App::is_key_pressed(GLFW_KEY_RIGHT) || App::is_key_pressed(GLFW_KEY_UP))
+    else
     {
-        m_scroll_vel = +0.2f;
-        Logger::info("timestamp: "s + std::to_string(m_time));
+        // a scuffed hack to reduce possibility of a sudden flash of the wrong timestamp when playback begins
+        if (std::abs(m_time - m_audio->get_time()) < 1.f)
+        {
+            m_time = m_audio->get_time();
+        }
+        m_scroll_vel = 0.f;
     }
-
-    m_time += m_scroll_vel;
-    m_scroll_vel *= 0.9f;
 
     m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);
 

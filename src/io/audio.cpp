@@ -3,6 +3,9 @@
 Audio::Audio(std::string_view path)
     : m_path { path }
     , m_data { }
+    , m_engine { }
+    , m_sound { }
+    , m_playback_sample_rate { }
 {
     Logger::info("loading audio file...");
 
@@ -30,10 +33,14 @@ Audio::Audio(std::string_view path)
 
     ma_decoder_uninit(&decoder);
 
+    ma_engine_init(NULL, &m_engine);
+    ma_sound_init_from_file(&m_engine, m_path.c_str(), 0, NULL, NULL, &m_sound);
+    m_playback_sample_rate = ma_engine_get_sample_rate(&m_engine);
+
     Logger::info(
         "done: loaded audio file '" + m_path + "' (" +
-        std::to_string((int)get_seconds() / 60) + " min " +
-        std::to_string((int)get_seconds() % 60) + " sec)"
+        std::to_string((int)get_duration() / 60) + " min " +
+        std::to_string((int)get_duration() % 60) + " sec)"
     );
 }
 
@@ -47,7 +54,37 @@ std::string Audio::get_path() const
     return m_path;
 }
 
-double Audio::get_seconds() const
+double Audio::get_duration() const
 {
     return m_data.size() / 22050.0;
+}
+
+float Audio::get_time() const
+{
+    return (float)ma_sound_get_time_in_pcm_frames(&m_sound) / (float)m_playback_sample_rate;
+}
+
+bool Audio::is_playing() const
+{
+    return ma_sound_is_playing(&m_sound);
+}
+
+void Audio::play(float start_time)
+{
+    if (ma_sound_is_playing(&m_sound))
+    {
+        return;
+    }
+    ma_uint64 target_frame = (ma_uint64)(start_time * m_playback_sample_rate);
+    ma_sound_seek_to_pcm_frame(&m_sound, target_frame);
+    ma_sound_start(&m_sound);
+}
+
+void Audio::pause()
+{
+    if (!ma_sound_is_playing(&m_sound))
+    {
+        return;
+    }
+    ma_sound_stop(&m_sound);
 }
