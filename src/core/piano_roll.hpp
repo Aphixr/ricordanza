@@ -25,8 +25,6 @@ public:
 
     void render();
 
-    inline static const float pixels_per_second { 100.f };
-
     // returns x position of left edge of key
     static float midi_pitch_to_horizontal_position(unsigned pitch);
 
@@ -48,6 +46,8 @@ private:
     float m_time;
 
     float m_scroll_vel;
+
+    float m_pixels_per_second { 100.f };
 
     gl::Program m_piano_program;
 

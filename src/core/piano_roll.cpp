@@ -130,11 +130,24 @@ void PianoRoll::load_audio(std::string_view path)
     {
         if (!m_audio->is_playing())
         {
+            m_time = std::max(m_time, 0.f);
             m_audio->play(m_time);
         }
         else
         {
             m_audio->pause();
+        }
+    });
+
+    App::on_scroll([this](double x_offset, double y_offset)
+    {
+        if (App::is_key_pressed(GLFW_KEY_LEFT_CONTROL) || App::is_key_pressed(GLFW_KEY_RIGHT_CONTROL))
+        {
+            m_pixels_per_second = std::max(std::min<float>(m_pixels_per_second - 2.f * y_offset, 1000.f), 5.f);
+        }
+        else
+        {
+            m_scroll_vel = 1.2f * y_offset * (100.f / m_pixels_per_second);
         }
     });
 }
@@ -159,7 +172,7 @@ void PianoRoll::render()
             Logger::update("timestamp", "timestamp: "s + std::to_string(m_time));
         }
         m_time += m_scroll_vel;
-        m_scroll_vel *= 0.8f;
+        m_scroll_vel *= 0.9f;
     }
     else
     {
@@ -189,9 +202,9 @@ void PianoRoll::render()
 
         // dimensions of note block
         float x { midi_pitch_to_horizontal_position(note.midi_pitch) };
-        float y { keyboard_y + ((note.start_time - m_time) * pixels_per_second) };
+        float y { keyboard_y + ((note.start_time - m_time) * m_pixels_per_second) };
         float width { is_white_key(note.midi_pitch) ? get_white_key_width() - 1 : get_black_key_width() };
-        float height { (note.end_time - note.start_time) * pixels_per_second };
+        float height { (note.end_time - note.start_time) * m_pixels_per_second };
 
         // culling, skip notes completely off screen
         if (y > App::get_window_height() || y + height < keyboard_y)
