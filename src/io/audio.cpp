@@ -1,5 +1,7 @@
 #include "audio.hpp"
 
+using namespace std::literals;
+
 Audio::Audio(std::string_view path)
     : m_path { path }
     , m_data { }
@@ -7,7 +9,7 @@ Audio::Audio(std::string_view path)
     , m_sound { }
     , m_playback_sample_rate { }
 {
-    Logger::info("loading audio file...");
+    Logger::info("loading audio file '"s + path.data() + "'...");
 
     // mono, 32-bit floats, 22050 Hz
     ma_decoder_config config { ma_decoder_config_init(ma_format_f32, 1, 22050) };
@@ -33,6 +35,24 @@ Audio::Audio(std::string_view path)
 
     ma_decoder_uninit(&decoder);
 
+    // makes data normalized to -1 to +1
+    float max_amp = 0.0f;
+    for (float sample : m_data)
+    {
+        if (std::abs(sample) > max_amp)
+        {
+            max_amp = std::abs(sample);
+        }
+    }
+    if (max_amp > 0.0f)
+    {
+        for (float& sample : m_data)
+        {
+            sample /= max_amp;
+        }
+    }
+
+    // initialize stuff for playback
     ma_engine_init(NULL, &m_engine);
     ma_sound_init_from_file(&m_engine, m_path.c_str(), 0, NULL, NULL, &m_sound);
     m_playback_sample_rate = ma_engine_get_sample_rate(&m_engine);
