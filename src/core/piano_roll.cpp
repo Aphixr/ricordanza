@@ -166,6 +166,9 @@ void PianoRoll::render()
     std::vector<InstanceData> inst_data;
     inst_data.reserve(m_transcriber->get_note_count());
 
+    std::vector<glm::vec3> key_colors;
+    key_colors.resize(88);
+
     const float keyboard_top { 0.08f * App::get_window_width() };
 
     for (int key { 0 }; key < 88; key++)
@@ -173,6 +176,10 @@ void PianoRoll::render()
         // dimensions of note block
         float x { midi_pitch_to_horizontal_position(key + 21) };
         float width { is_white_key(key + 21) ? get_white_key_width() - 1 : get_black_key_width() };
+
+        key_colors[key] = is_white_key(key + 21)
+            ? glm::vec3(0.92f, 0.92f, 0.92f)
+            : glm::vec3(0.06f, 0.06f, 0.06f);
 
         for (const Note& note : m_transcriber->get_notes()[key]) {
             // more dimensions of note block
@@ -185,10 +192,16 @@ void PianoRoll::render()
                 continue;
             }
 
-            glm::mat4 model = glm::mat4(1.0f);
+            glm::vec3 color { 0.1f + note.onset_prob, 0.1f + (0.3f - 0.3f * note.onset_prob), 1.1f - note.onset_prob };
+            glm::mat4 model ( 1.0f );
             model = glm::translate(model, glm::vec3(x, y, 0.f));
             model = glm::scale(model, glm::vec3(width - 1.f, height, 1.f));
-            inst_data.emplace_back(model, glm::vec4(0.1f + note.onset_prob, 0.25f, 1.1f - note.onset_prob, 1.f));
+            inst_data.emplace_back(model, glm::vec4(color, 1.f));
+
+            if (y < keyboard_top)
+            {
+                key_colors[key] = is_white_key(key + 21) ? 1.2f * color : 0.8f * color;
+            }
         }
     }
 
@@ -209,6 +222,7 @@ void PianoRoll::render()
 
     for (int i { 21 }; i <= 108; i++)
     {
+        const int key { i - 21 };
         if (!is_white_key(i))
         {
             continue;
@@ -216,13 +230,14 @@ void PianoRoll::render()
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.f, 0.f));
         model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, keyboard_top, 1.f));
-        m_piano_program.set_uniform_4f("color", 0.9f, 0.9f, 0.9f, 1.f);
+        m_piano_program.set_uniform_4f("color", key_colors[key].r, key_colors[key].g, key_colors[key].b, 1.f);
         m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
     for (int i { 21 }; i <= 108; i++)
     {
+        const int key { i - 21 };
         if (is_white_key(i))
         {
             continue;
@@ -230,7 +245,7 @@ void PianoRoll::render()
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.3f * keyboard_top, 0.f));
         model = glm::scale(model, glm::vec3(get_black_key_width(), 0.7f * keyboard_top, 1.f));
-        m_piano_program.set_uniform_4f("color", 0.06f, 0.06f, 0.06f, 1.f);
+        m_piano_program.set_uniform_4f("color", key_colors[key].r, key_colors[key].g, key_colors[key].b, 1.f);
         m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
