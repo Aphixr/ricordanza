@@ -13,15 +13,15 @@ struct Pitch
 
 // converts midi pitch (0-127) to key index (0-87)
 // returns -1 if outside of piano's range
-constexpr int midi_to_index(int midi)
+constexpr int midi_to_key(int midi)
 {
     return (midi <= 20 || midi >= 109) ? -1 : (midi - 21);
 }
 
-constexpr Pitch midi_to_pitch(int midi)
+constexpr Pitch key_to_pitch(int key)
 {
     Letter letter { };
-    switch (midi % 12)
+    switch ((key + 21) % 12)
     {
         case 0:     letter = Letter::C;     break;
         case 1:     letter = Letter::Cs;    break;
@@ -36,5 +36,5 @@ constexpr Pitch midi_to_pitch(int midi)
         case 10:    letter = Letter::As;    break;
         case 11:    letter = Letter::B;     break;
     }
-    return Pitch { letter, midi / 12 - 1 };
+    return Pitch { letter, (key + 21) / 12 - 1 };
 }

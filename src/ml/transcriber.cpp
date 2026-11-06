@@ -107,7 +107,7 @@ void Transcriber::run(const std::vector<float>& raw)
                     float end_time = (frame) * s_frame_duration;
 
                     m_notes[key].push_back({
-                        key + 21,               // midi pitch
+                        key,
                         start_time,
                         end_time,
                         held_onset_prob,
@@ -121,7 +121,7 @@ void Transcriber::run(const std::vector<float>& raw)
         if (is_held)
         {
             m_notes[key].push_back({
-                key + 21,
+                key,
                 start_time,
                 m_frame_probs[key].size() * s_frame_duration,
                 held_onset_prob,

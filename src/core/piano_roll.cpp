@@ -174,10 +174,10 @@ void PianoRoll::render()
     for (int key { 0 }; key < 88; key++)
     {
         // dimensions of note block
-        float x { midi_pitch_to_horizontal_position(key + 21) };
-        float width { is_white_key(key + 21) ? get_white_key_width() - 1 : get_black_key_width() };
+        float x { get_key_x_pos(key) };
+        float width { get_key_width(key) };
 
-        key_colors[key] = is_white_key(key + 21)
+        key_colors[key] = is_white_key(key)
             ? glm::vec3(0.92f, 0.92f, 0.92f)
             : glm::vec3(0.06f, 0.06f, 0.06f);
 
@@ -195,12 +195,12 @@ void PianoRoll::render()
             glm::vec3 color { 0.1f + note.onset_prob, 0.1f + (0.3f - 0.3f * note.onset_prob), 1.1f - note.onset_prob };
             glm::mat4 model ( 1.0f );
             model = glm::translate(model, glm::vec3(x, y, 0.f));
-            model = glm::scale(model, glm::vec3(width - 1.f, height, 1.f));
+            model = glm::scale(model, glm::vec3(width, height, 1.f));
             inst_data.emplace_back(model, glm::vec4(color, 1.f));
 
             if (y < keyboard_top)
             {
-                key_colors[key] = is_white_key(key + 21) ? 1.2f * color : 0.8f * color;
+                key_colors[key] = is_white_key(key) ? 1.2f * color : 0.8f * color;
             }
         }
     }
@@ -220,30 +220,28 @@ void PianoRoll::render()
     m_piano_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
     m_vao.bind();
 
-    for (int i { 21 }; i <= 108; i++)
+    for (int key { 0 }; key < 88; key++)
     {
-        const int key { i - 21 };
-        if (!is_white_key(i))
+        if (!is_white_key(key))
         {
             continue;
         }
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.f, 0.f));
-        model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, keyboard_top, 1.f));
+        model = glm::translate(model, glm::vec3(get_key_x_pos(key), 0.f, 0.f));
+        model = glm::scale(model, glm::vec3(get_white_key_width(), keyboard_top, 1.f));
         m_piano_program.set_uniform_4f("color", key_colors[key].r, key_colors[key].g, key_colors[key].b, 1.f);
         m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
     }
 
-    for (int i { 21 }; i <= 108; i++)
+    for (int key { 0 }; key < 88; key++)
     {
-        const int key { i - 21 };
-        if (is_white_key(i))
+        if (is_white_key(key))
         {
             continue;
         }
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.3f * keyboard_top, 0.f));
+        model = glm::translate(model, glm::vec3(get_key_x_pos(key), 0.3f * keyboard_top, 0.f));
         model = glm::scale(model, glm::vec3(get_black_key_width(), 0.7f * keyboard_top, 1.f));
         m_piano_program.set_uniform_4f("color", key_colors[key].r, key_colors[key].g, key_colors[key].b, 1.f);
         m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
@@ -253,10 +251,10 @@ void PianoRoll::render()
     m_vao.unbind();
 }
 
-float PianoRoll::midi_pitch_to_horizontal_position(unsigned midi)
+float PianoRoll::get_key_x_pos(unsigned key)
 {
-    Pitch pitch { midi_to_pitch(midi) };
-    float white_key_width { get_white_key_width() };
+    Pitch pitch { key_to_pitch(key) };
+    float white_key_width { get_white_key_width() + 1.f };
     float black_key_width { get_black_key_width() };
     switch (pitch.letter)
     {
@@ -276,15 +274,20 @@ float PianoRoll::midi_pitch_to_horizontal_position(unsigned midi)
     return -1.f;
 }
 
-bool PianoRoll::is_white_key(unsigned midi)
+bool PianoRoll::is_white_key(unsigned key)
 {
-    unsigned note { midi % 12 };
+    unsigned note { (key + 21) % 12 };
     return note == 0 || note == 2 || note == 4 || note == 5 || note == 7 || note == 9 || note == 11;
+}
+
+float PianoRoll::get_key_width(unsigned key)
+{
+    return is_white_key(key) ? get_white_key_width() : get_black_key_width();
 }
 
 float PianoRoll::get_white_key_width()
 {
-    return App::get_window_width() / 52.f;
+    return App::get_window_width() / 52.f - 1.f;
 }
 
 float PianoRoll::get_black_key_width()

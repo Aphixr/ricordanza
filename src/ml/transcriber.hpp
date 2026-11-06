@@ -7,7 +7,7 @@
 
 struct Note
 {
-    int midi_pitch;         // 0-127, or 21-108 (A0-C8)
+    int key;                // 0-87
     float start_time;       // in seconds
     float end_time;         // in seconds
     float onset_prob;       // 0-1

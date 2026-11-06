@@ -26,9 +26,11 @@ public:
     void render();
 
     // returns x position of left edge of key
-    static float midi_pitch_to_horizontal_position(unsigned pitch);
+    static float get_key_x_pos(unsigned pitch);
 
     static bool is_white_key(unsigned pitch);
+
+    static float get_key_width(unsigned key);
 
     static float get_white_key_width();
 
