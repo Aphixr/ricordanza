@@ -39,8 +39,8 @@ private:
     // loaded audio data
     Audio* m_audio;
 
-    // notes
-    std::vector<Note> m_notes;
+    // transcribed data
+    Transcriber* m_transcriber;
 
     // represents the current playback time in seconds
     float m_time;

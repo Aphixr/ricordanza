@@ -1,13 +1,9 @@
 #pragma once
 
-#include <cstddef>
 #include <vector>
 #include <string>
 
 #include <onnxruntime_cxx_api.h>
-
-#include "../dsp/analyzer.hpp"
-#include "../util/logger.hpp"
 
 struct Note
 {
@@ -24,7 +20,11 @@ public:
 
     Transcriber(const std::string& model_path);
 
-    std::vector<Note> run(const std::vector<float>& raw);
+    const std::vector<std::vector<Note>>& get_notes() const;
+
+    unsigned get_note_count() const;
+
+    void run(const std::vector<float>& raw);
 
 private:
 
@@ -43,6 +43,9 @@ private:
     Ort::Session m_session;
 
     Ort::MemoryInfo m_memory_info;
+
+    // [key 0-87][note]
+    std::vector<std::vector<Note>> m_notes;
 
     // [key 0-87][frame]
     std::vector<std::vector<float>> m_frame_probs;

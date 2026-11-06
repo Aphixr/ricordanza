@@ -5,6 +5,7 @@
 #include "app.hpp"
 #include "../io/shader_manager.hpp"
 #include "../util/pitch.hpp"
+#include "../util/time.hpp"
 #include "../ml/transcriber.hpp"
 
 using namespace std::literals;
@@ -21,8 +22,8 @@ float vertices[]
 
 PianoRoll::PianoRoll()
     : m_audio { nullptr }
-    , m_notes { }
-    , m_time { 30.f }
+    , m_transcriber { nullptr }
+    , m_time { 0.f }
     , m_scroll_vel { 0.f }
     , m_piano_program { }
     , m_notes_program { }
@@ -72,7 +73,9 @@ PianoRoll::PianoRoll()
 PianoRoll::~PianoRoll()
 {
     delete m_audio;
+    delete m_transcriber;
     m_audio = nullptr;
+    m_transcriber = nullptr;
 }
 
 void PianoRoll::load_audio(std::string_view path)
@@ -81,13 +84,14 @@ void PianoRoll::load_audio(std::string_view path)
     {
         delete m_audio;
     }
-    
-    m_audio = new Audio(path);
+    if (m_transcriber != nullptr)
+    {
+        delete m_transcriber;
+    }
 
-    Transcriber transcriber { "basic_pitch.onnx" };
-    m_notes = transcriber.run(m_audio->get_data());
-
-    Logger::info("transcribed raw data into vector of "s + std::to_string(m_notes.size()) + " notes"s);
+    m_audio = new Audio { path };
+    m_transcriber = new Transcriber { "basic_pitch.onnx" };
+    m_transcriber->run(m_audio->get_data());
 
     App::on_key_down(GLFW_KEY_SPACE, [this]()
     {
@@ -127,12 +131,10 @@ void PianoRoll::render()
         if (App::is_key_pressed(GLFW_KEY_LEFT) || App::is_key_pressed(GLFW_KEY_DOWN))
         {
             m_scroll_vel = -0.2f;
-            Logger::update("timestamp", "timestamp: "s + std::to_string(m_time));
         }
         if (App::is_key_pressed(GLFW_KEY_RIGHT) || App::is_key_pressed(GLFW_KEY_UP))
         {
             m_scroll_vel = +0.2f;
-            Logger::update("timestamp", "timestamp: "s + std::to_string(m_time));
         }
         m_time += m_scroll_vel;
         m_scroll_vel *= 0.9f;
@@ -146,38 +148,39 @@ void PianoRoll::render()
         }
         m_scroll_vel = 0.f;
     }
+    Logger::update("timestamp"s, "timestamp: " + seconds_to_string(m_time) + " / " + seconds_to_string(m_audio->get_duration()));
 
     m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);
 
     // render note blocks
 
-    // std::vector<glm::vec4> inst_data;
     std::vector<glm::mat4> inst_data;
-    inst_data.reserve(m_notes.size());
+    inst_data.reserve(m_transcriber->get_note_count());
 
     const float keyboard_y { 0.14f * App::get_window_height() };
 
-    for (const Note& note : m_notes) {
-        if (note.midi_pitch < 21 || note.midi_pitch > 108)
-        {
-            continue;
-        }
-
+    for (int key { 0 }; key < 88; key++)
+    {
         // dimensions of note block
-        float x { midi_pitch_to_horizontal_position(note.midi_pitch) };
-        float y { keyboard_y + ((note.start_time - m_time) * m_pixels_per_second) };
-        float width { is_white_key(note.midi_pitch) ? get_white_key_width() - 1 : get_black_key_width() };
-        float height { (note.end_time - note.start_time) * m_pixels_per_second };
+        float x { midi_pitch_to_horizontal_position(key + 21) };
+        float width { is_white_key(key + 21) ? get_white_key_width() - 1 : get_black_key_width() };
 
-        // culling, skip notes completely off screen
-        if (y > App::get_window_height() || y + height < keyboard_y)
-        {
-            continue;
+        for (const Note& note : m_transcriber->get_notes()[key]) {
+            // more dimensions of note block
+            float y { keyboard_y + ((note.start_time - m_time) * m_pixels_per_second) };
+            float height { (note.end_time - note.start_time) * m_pixels_per_second };
+
+            // culling, skip notes completely off screen
+            if (y > App::get_window_height() || y + height < keyboard_y)
+            {
+                continue;
+            }
+
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(x + 1.f, y, 0.f));
+            model = glm::scale(model, glm::vec3(width - 2.f, height, 1.f));
+            inst_data.push_back(model);
         }
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(x + 1.f, y, 0.f));
-        model = glm::scale(model, glm::vec3(width - 2.f, height, 1.f));
-        inst_data.push_back(model);
     }
 
     m_notes_program.use();
