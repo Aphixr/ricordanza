@@ -62,7 +62,7 @@ void App::run()
 {
     while (!window.shouldClose())
     {
-        glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+        glClearColor(0.133f, 0.133f, 0.133f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         for (std::function<void ()>& callback : on_render_callbacks)

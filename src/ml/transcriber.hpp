@@ -7,10 +7,11 @@
 
 struct Note
 {
-    int midi_pitch;     // 0-127, or 21-108 (A0-C8)
-    float start_time;   // in seconds
-    float end_time;     // in seconds
-    float amplitude;    // 0-1
+    int midi_pitch;         // 0-127, or 21-108 (A0-C8)
+    float start_time;       // in seconds
+    float end_time;         // in seconds
+    float onset_prob;       // 0-1
+    float max_frame_prob;   // 0-1
 };
 
 class Transcriber

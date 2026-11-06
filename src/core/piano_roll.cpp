@@ -166,7 +166,7 @@ void PianoRoll::render()
     std::vector<InstanceData> inst_data;
     inst_data.reserve(m_transcriber->get_note_count());
 
-    const float keyboard_y { 0.14f * App::get_window_height() };
+    const float keyboard_top { 0.08f * App::get_window_width() };
 
     for (int key { 0 }; key < 88; key++)
     {
@@ -176,19 +176,19 @@ void PianoRoll::render()
 
         for (const Note& note : m_transcriber->get_notes()[key]) {
             // more dimensions of note block
-            float y { keyboard_y + ((note.start_time - m_time) * m_pixels_per_second) };
-            float height { (note.end_time - note.start_time) * m_pixels_per_second };
+            float y { keyboard_top + ((note.start_time - m_time) * m_pixels_per_second) };
+            float height { (note.end_time - note.start_time + 0.02f) * m_pixels_per_second };
 
             // culling, skip notes completely off screen
-            if (y > App::get_window_height() || y + height < keyboard_y)
+            if (y > App::get_window_height() || y + height < keyboard_top)
             {
                 continue;
             }
 
             glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, glm::vec3(x + 1.f, y, 0.f));
-            model = glm::scale(model, glm::vec3(width - 2.f, height, 1.f));
-            inst_data.emplace_back(model, glm::vec4(0.2f + note.amplitude, 0.25f, 1.2f - note.amplitude, 0.4 * note.amplitude + 0.6));
+            model = glm::translate(model, glm::vec3(x, y, 0.f));
+            model = glm::scale(model, glm::vec3(width - 1.f, height, 1.f));
+            inst_data.emplace_back(model, glm::vec4(0.1f + note.onset_prob, 0.25f, 1.1f - note.onset_prob, 1.f));
         }
     }
 
@@ -215,7 +215,7 @@ void PianoRoll::render()
         }
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.f, 0.f));
-        model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, 0.14f * App::get_window_height(), 1.f));
+        model = glm::scale(model, glm::vec3(get_white_key_width() - 1.f, keyboard_top, 1.f));
         m_piano_program.set_uniform_4f("color", 0.9f, 0.9f, 0.9f, 1.f);
         m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -228,8 +228,8 @@ void PianoRoll::render()
             continue;
         }
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.04f * App::get_window_height(), 0.f));
-        model = glm::scale(model, glm::vec3(get_black_key_width(), 0.1f * App::get_window_height(), 1.f));
+        model = glm::translate(model, glm::vec3(midi_pitch_to_horizontal_position(i), 0.3f * keyboard_top, 0.f));
+        model = glm::scale(model, glm::vec3(get_black_key_width(), 0.7f * keyboard_top, 1.f));
         m_piano_program.set_uniform_4f("color", 0.06f, 0.06f, 0.06f, 1.f);
         m_piano_program.set_uniform_mat4("model", glm::value_ptr(model));
         glDrawArrays(GL_TRIANGLES, 0, 6);

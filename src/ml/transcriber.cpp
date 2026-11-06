@@ -75,6 +75,8 @@ void Transcriber::run(const std::vector<float>& raw)
     {
         bool is_held { false };
         float start_time { 0.f }; // in seconds
+        float held_onset_prob { 0.f };
+        float start_frame_prob { 0.f };
         float max_frame_prob { 0.f };
 
         // for each frame in time
@@ -85,11 +87,12 @@ void Transcriber::run(const std::vector<float>& raw)
 
             if (!is_held)
             {
-                if (onset_prob >= 0.375f || (frame_prob >= 0.8f && onset_prob >= 0.25f))
+                if (onset_prob >= std::min(0.008f * key + 0.2f, 0.36f))
                 {
                     is_held = true;
                     start_time = frame * s_frame_duration;
-                    max_frame_prob = frame_prob;
+                    held_onset_prob = onset_prob;
+                    start_frame_prob = frame_prob;
                 }
             }
             else
@@ -98,38 +101,17 @@ void Transcriber::run(const std::vector<float>& raw)
                 {
                     max_frame_prob = frame_prob;
                 }
-                if (frame_prob < 0.15f)
+                if (std::abs(frame_prob - start_frame_prob) > 0.04f)
                 {
-                    // look ahead a few frames to see if frame prob stays below threshold consistently
-                    bool below_threshold_consistently { true };
-                    for (int ahead { frame + 1 }; ahead <= frame + 7; ahead++)
-                    {
-                        if (m_frame_probs[key][ahead] >= 0.15f)
-                        {
-                            below_threshold_consistently = false;
-                            break;
-                        }
-                    }
-                    if (!below_threshold_consistently)
-                    {
-                        continue;
-                    }
-
                     is_held = false;
-                    float end_time = frame * s_frame_duration;
+                    float end_time = (frame) * s_frame_duration;
 
-                    // if the note was held for a very short amount of time
-                    // ignore, probably was a little glitch
-                    // otherwise, store it
-                    if (end_time - start_time < 0.06f)
-                    {
-                        continue; // continue loop frame
-                    }
                     m_notes[key].push_back({
-                        key + 21,           // midi pitch
+                        key + 21,               // midi pitch
                         start_time,
                         end_time,
-                        max_frame_prob      // amplitude
+                        held_onset_prob,
+                        max_frame_prob
                     });
                 }
             }
@@ -141,7 +123,8 @@ void Transcriber::run(const std::vector<float>& raw)
             m_notes[key].push_back({
                 key + 21,
                 start_time,
-                raw.size() / 22050.f,
+                m_frame_probs[key].size() * s_frame_duration,
+                held_onset_prob,
                 max_frame_prob
             });
         }
@@ -221,15 +204,15 @@ void Transcriber::filter_out_overtones(Note fundamental, int target_key)
     for (int i { 0 }; i < m_notes[target_key].size(); i++)
     {
         Note& target { m_notes[target_key][i] };
-        if (target.start_time - fundamental.start_time > 0.1f)
+        if (target.end_time - fundamental.end_time > 0.1f)
         {
             break;
         }
-        if (target.start_time - fundamental.start_time < -0.05f)
+        if (target.start_time - fundamental.start_time < -0.1f)
         {
             continue;
         }
-        if (target.amplitude < fundamental.amplitude - 0.2f)
+        if (target.onset_prob < 0.55f * fundamental.onset_prob)
         {
             m_notes[target_key].erase(m_notes[target_key].begin() + i);
             i--;
