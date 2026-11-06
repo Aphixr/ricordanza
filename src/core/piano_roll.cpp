@@ -20,6 +20,12 @@ float vertices[]
     1.f, 0.f
 };
 
+struct InstanceData
+{
+    glm::mat4 model;
+    glm::vec4 color;
+};
+
 PianoRoll::PianoRoll()
     : m_audio { nullptr }
     , m_transcriber { nullptr }
@@ -46,7 +52,7 @@ PianoRoll::PianoRoll()
     m_vbo.unbind();
 
     m_notes_program.attach(ShaderManager::get("../res/instance.vert.glsl"));
-    m_notes_program.attach(ShaderManager::get("../res/solid.frag.glsl"));
+    m_notes_program.attach(ShaderManager::get("../res/instance.frag.glsl"));
     m_notes_program.link();
 
     m_notes_vao.bind();
@@ -55,12 +61,15 @@ PianoRoll::PianoRoll()
     m_notes_vao.attribute(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
     m_notes_vao.enable_attribute_array(0);
     m_inst_vbo.bind();
-    for (int i = 1; i < 5; i++)
+    for (int loc { 1 }; loc <= 4; loc++)
     {
-        m_notes_vao.enable_attribute_array(i);
-        m_notes_vao.attribute(i, 4, GL_FLOAT, GL_FALSE, sizeof(glm::mat4), (void*)((i - 1) * sizeof(glm::vec4)));
-        m_notes_vao.attribute_divisor(i, 1);
+        m_notes_vao.enable_attribute_array(loc);
+        m_notes_vao.attribute(loc, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceData), (void*)((loc - 1) * sizeof(glm::vec4)));
+        m_notes_vao.attribute_divisor(loc, 1);
     }
+    m_notes_vao.enable_attribute_array(5);
+    m_notes_vao.attribute(5, 4, GL_FLOAT, GL_FALSE, sizeof(InstanceData), (void*)(sizeof(glm::mat4)));
+    m_notes_vao.attribute_divisor(5, 1);
     m_notes_vao.unbind();
     m_inst_vbo.unbind();
 
@@ -154,7 +163,7 @@ void PianoRoll::render()
 
     // render note blocks
 
-    std::vector<glm::mat4> inst_data;
+    std::vector<InstanceData> inst_data;
     inst_data.reserve(m_transcriber->get_note_count());
 
     const float keyboard_y { 0.14f * App::get_window_height() };
@@ -179,17 +188,15 @@ void PianoRoll::render()
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, glm::vec3(x + 1.f, y, 0.f));
             model = glm::scale(model, glm::vec3(width - 2.f, height, 1.f));
-            inst_data.push_back(model);
+            inst_data.emplace_back(model, glm::vec4(0.2f + note.amplitude, 0.25f, 1.2f - note.amplitude, 0.4 * note.amplitude + 0.6));
         }
     }
 
     m_notes_program.use();
     m_notes_program.set_uniform_mat4("projection", glm::value_ptr(m_projection));
-    m_notes_program.set_uniform_4f("color", 0.9f, 0.7f, 0.1f, 0.8f);
     m_notes_vao.bind();
     m_inst_vbo.bind();
-    // m_notes_vbo.data(inst_data.size() * sizeof(glm::vec4), inst_data.data(), GL_DYNAMIC_DRAW);
-    m_inst_vbo.data(inst_data.size() * sizeof(glm::mat4), inst_data.data(), GL_STATIC_DRAW);
+    m_inst_vbo.data(inst_data.size() * sizeof(InstanceData), inst_data.data(), GL_DYNAMIC_DRAW);
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, inst_data.size());
     m_inst_vbo.unbind();
     m_notes_vao.unbind();
