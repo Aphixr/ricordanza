@@ -55,6 +55,8 @@ private:
 
     void generate_probabilities(const std::vector<float>& raw);
 
+    void filter_out_overtones(Note fundamental, int target_key);
+
     // needed for basic pitch
     inline static const int s_chunk_size { 43844 };
 

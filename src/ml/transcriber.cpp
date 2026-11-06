@@ -57,7 +57,7 @@ unsigned Transcriber::get_note_count() const
 {
     unsigned count { 0 };
     for (const std::vector<Note>& key_notes : m_notes)
-            {
+    {
         count += key_notes.size();
     }
     return count;
@@ -85,7 +85,7 @@ void Transcriber::run(const std::vector<float>& raw)
 
             if (!is_held)
             {
-                if (onset_prob >= 0.5f || frame_prob >= 0.5f)
+                if (onset_prob >= 0.375f || (frame_prob >= 0.8f && onset_prob >= 0.25f))
                 {
                     is_held = true;
                     start_time = frame * s_frame_duration;
@@ -149,6 +149,21 @@ void Transcriber::run(const std::vector<float>& raw)
 
     Logger::info("done: transcribing probabilities into vector (" + std::to_string(get_note_count()) + " notes)");
 
+    Logger::info("filtering out harmonic overtones");
+
+    // filter out harmonic overtones
+    for (int key { 0 }; key < 88; key++)
+    {
+        for (Note& note : m_notes[key])
+        {
+            filter_out_overtones(note, key + 12); // 1 octave higher
+            filter_out_overtones(note, key + 19); // 1 octave plus perfect 5th higher
+            filter_out_overtones(note, key + 24); // 2 octaves higher
+            filter_out_overtones(note, key + 28); // 2 octaves plus major 3rd higher
+        }
+    }
+
+    Logger::info("done: filtered out harmonic overtones (" + std::to_string(get_note_count()) + " notes)");
 }
 
 void Transcriber::generate_probabilities(const std::vector<float>& raw)
@@ -194,4 +209,30 @@ void Transcriber::generate_probabilities(const std::vector<float>& raw)
     }
 
     Logger::info("done: generated probabilities (" + std::to_string(m_frame_probs[0].size()) + " frames)");
+}
+
+void Transcriber::filter_out_overtones(Note fundamental, int target_key)
+{
+    if (target_key >= 88)
+    {
+        return;
+    }
+
+    for (int i { 0 }; i < m_notes[target_key].size(); i++)
+    {
+        Note& target { m_notes[target_key][i] };
+        if (target.start_time - fundamental.start_time > 0.1f)
+        {
+            break;
+        }
+        if (target.start_time - fundamental.start_time < -0.05f)
+        {
+            continue;
+        }
+        if (target.amplitude < fundamental.amplitude - 0.2f)
+        {
+            m_notes[target_key].erase(m_notes[target_key].begin() + i);
+            i--;
+        }
+    }
 }
