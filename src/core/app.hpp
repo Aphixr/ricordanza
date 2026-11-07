@@ -49,6 +49,14 @@ private:
 
     inline static PianoRoll piano_roll { };
 
+    inline static std::string state_file_path { "" };
+
+    inline static bool state_filter_overtones { false };
+
+    inline static int state_num_threads { 2 };
+
+    inline static bool yes { true };
+
     static void window_size_callback(GLFWwindow*, int width, int height);
 
     static void key_down_callback(GLFWwindow*, int key, int scancode, int action, int mods);

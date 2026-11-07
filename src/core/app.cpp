@@ -5,6 +5,7 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
+#include "../util/time.hpp"
 
 #include "../util/logger.hpp"
 
@@ -82,6 +83,82 @@ void App::run()
         {
             callback();
         }
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        ImGui::Begin("Menu", &yes, ImGuiWindowFlags_AlwaysAutoResize);
+        if (ImGui::BeginTabBar("Tabs", ImGuiTabBarFlags_None))
+        {
+            if (ImGui::BeginTabItem("Audio"))
+            {
+                ImGui::Text("%s",
+                    piano_roll.get_file_name() != ""
+                    ? ("File: " + piano_roll.get_file_name()).c_str()
+                    : "Drag and drop an audio file (.mp3, .wav, .flac) to load it."
+                );
+                ImGui::Checkbox("Filter out harmonic overtones (experimental)", &state_filter_overtones);
+                if (ImGui::Button("Transcribe"))
+                {
+                    piano_roll.transcribe_audio({ state_filter_overtones });
+                    piano_roll.set_time(0.f);
+                }
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("View"))
+            {
+                if (ImGui::Button("Play / Pause"))
+                {
+                    if (piano_roll.is_playing())
+                    {
+                        piano_roll.pause();
+                    }
+                    else
+                    {
+                        piano_roll.play();
+                    }
+                }
+                if (ImGui::ArrowButton("-5 seconds", ImGuiDir_Left))
+                {
+                    piano_roll.set_time(piano_roll.get_time() - 5.f);
+                }
+                ImGui::SameLine();
+                if (ImGui::ArrowButton("+5 seconds", ImGuiDir_Right))
+                {
+                    piano_roll.set_time(piano_roll.get_time() + 5.f);
+                }
+                ImGui::SameLine();
+                ImGui::Text("%s / %s (%d / %d notes)",
+                    seconds_to_string(piano_roll.get_time()).c_str(),
+                    seconds_to_string(piano_roll.get_duration()).c_str(),
+                    piano_roll.get_note_index(),
+                    piano_roll.get_note_count()
+                );
+                if (ImGui::ArrowButton("-10\% scale", ImGuiDir_Left))
+                {
+                    piano_roll.set_pixels_per_second(0.9f * piano_roll.get_pixels_per_second());
+                }
+                ImGui::SameLine();
+                if (ImGui::ArrowButton("+11\% scale", ImGuiDir_Right))
+                {
+                    piano_roll.set_pixels_per_second(1.1111f * piano_roll.get_pixels_per_second());
+                }
+                ImGui::SameLine();
+                ImGui::Text("%d pixels per second", (int)piano_roll.get_pixels_per_second());
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Log"))
+            {
+                ImGui::Text("%s", Logger::get_log().c_str());
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
+        }
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         window.run();
     }

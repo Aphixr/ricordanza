@@ -19,7 +19,29 @@ public:
 
     void load_audio(std::string_view path);
 
+    void transcribe_audio(TranscriberOptions options);
+
+    unsigned get_note_index() const;
+
+    unsigned get_note_count() const;
+
     float get_time() const;
+
+    float get_duration() const;
+
+    float get_pixels_per_second() const;
+
+    std::string get_file_name() const;
+
+    bool is_playing() const;
+
+    void set_time(float time);
+
+    void set_pixels_per_second(float pps);
+
+    void play();
+
+    void pause();
 
     void render();
 
@@ -41,6 +63,8 @@ private:
 
     // transcribed data
     Transcriber* m_transcriber;
+
+    unsigned m_note_index;
 
     // represents the current playback time in seconds
     float m_time;

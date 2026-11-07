@@ -14,6 +14,11 @@ struct Note
     float max_frame_prob;   // 0-1
 };
 
+struct TranscriberOptions
+{
+    bool filter_out_overtones;
+};
+
 class Transcriber
 {
 
@@ -25,9 +30,13 @@ public:
 
     unsigned get_note_count() const;
 
+    void set_options(TranscriberOptions options);
+
     void run(const std::vector<float>& raw);
 
 private:
+
+    TranscriberOptions m_options;
 
     // [key 0-87][note]
     std::vector<std::vector<Note>> m_notes;
@@ -39,6 +48,10 @@ private:
     std::vector<std::vector<float>> m_onset_probs;
 
     void generate_probabilities(const std::vector<float>& raw);
+
+    void generate_notes();
+
+    void filter_out_overtones();
 
     void filter_out_overtones(Note fundamental, int target_key);
 

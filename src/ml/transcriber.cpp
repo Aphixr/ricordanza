@@ -51,7 +51,8 @@ void Transcriber::init_ort(const std::string& model_path)
 }
 
 Transcriber::Transcriber()
-    : m_notes { }
+    : m_options { false }
+    , m_notes { }
     , m_frame_probs { }
     , m_onset_probs { }
 {
@@ -80,10 +81,70 @@ unsigned Transcriber::get_note_count() const
     return count;
 }
 
+void Transcriber::set_options(TranscriberOptions options)
+{
+    m_options = options;
+}
+
 void Transcriber::run(const std::vector<float>& raw)
 {
     generate_probabilities(raw);
 
+    generate_notes();
+
+    if (m_options.filter_out_overtones)
+    {
+        filter_out_overtones();
+    }
+}
+
+void Transcriber::generate_probabilities(const std::vector<float>& raw)
+{
+    Logger::info("generating probabilities...");
+
+    const char* input_names[] { s_input_name.c_str() };
+    const char* output_names[] { s_note_name.c_str(), s_onset_name.c_str(), s_contour_name.c_str() };
+
+    // loop through entire audio in chunks
+    for (size_t offset { 0 }; offset + s_chunk_size <= raw.size(); offset += s_chunk_size)
+    {
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+            s_memory_info,
+            const_cast<float*>(raw.data() + offset),
+            s_chunk_size,
+            s_input_shape.data(),
+            s_input_shape.size()
+        );
+        
+        // run neural network
+        std::vector<Ort::Value> output_tensors = s_session.Run(
+            Ort::RunOptions{nullptr},
+            input_names, &input_tensor, 1,
+            output_names, 3
+        );
+
+        // get note and onset probabilities
+        float* frame_probs = output_tensors[0].GetTensorMutableData<float>();
+        float* onset_probs = output_tensors[1].GetTensorMutableData<float>();
+
+        // look at one key at a time
+        for (int key { 0 }; key < 88; key++)
+        {
+            // loop through time
+            for (int frame { 0 }; frame < s_frames_per_chunk; frame++)
+            {
+                int i { 88 * frame + key };
+                m_frame_probs[key].push_back(frame_probs[i]);
+                m_onset_probs[key].push_back(onset_probs[i]);
+            }
+        }
+    }
+
+    Logger::info("done: generated probabilities (" + std::to_string(m_frame_probs[0].size()) + " frames)");
+}
+
+void Transcriber::generate_notes()
+{
     Logger::info("transcribing probabilities into vector of notes...");
 
     // generate notes
@@ -148,7 +209,10 @@ void Transcriber::run(const std::vector<float>& raw)
     }
 
     Logger::info("done: transcribing probabilities into vector (" + std::to_string(get_note_count()) + " notes)");
+}
 
+void Transcriber::filter_out_overtones()
+{
     Logger::info("filtering out harmonic overtones");
 
     // filter out harmonic overtones
@@ -164,51 +228,6 @@ void Transcriber::run(const std::vector<float>& raw)
     }
 
     Logger::info("done: filtered out harmonic overtones (" + std::to_string(get_note_count()) + " notes)");
-}
-
-void Transcriber::generate_probabilities(const std::vector<float>& raw)
-{
-    Logger::info("generating probabilities...");
-
-    const char* input_names[] { s_input_name.c_str() };
-    const char* output_names[] { s_note_name.c_str(), s_onset_name.c_str(), s_contour_name.c_str() };
-
-    // loop through entire audio in chunks
-    for (size_t offset { 0 }; offset + s_chunk_size <= raw.size(); offset += s_chunk_size)
-    {
-        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
-            s_memory_info,
-            const_cast<float*>(raw.data() + offset),
-            s_chunk_size,
-            s_input_shape.data(),
-            s_input_shape.size()
-        );
-        
-        // run neural network
-        std::vector<Ort::Value> output_tensors = s_session.Run(
-            Ort::RunOptions{nullptr},
-            input_names, &input_tensor, 1,
-            output_names, 3
-        );
-
-        // get note and onset probabilities
-        float* frame_probs = output_tensors[0].GetTensorMutableData<float>();
-        float* onset_probs = output_tensors[1].GetTensorMutableData<float>();
-
-        // look at one key at a time
-        for (int key { 0 }; key < 88; key++)
-        {
-            // loop through time
-            for (int frame { 0 }; frame < s_frames_per_chunk; frame++)
-            {
-                int i { 88 * frame + key };
-                m_frame_probs[key].push_back(frame_probs[i]);
-                m_onset_probs[key].push_back(onset_probs[i]);
-            }
-        }
-    }
-
-    Logger::info("done: generated probabilities (" + std::to_string(m_frame_probs[0].size()) + " frames)");
 }
 
 void Transcriber::filter_out_overtones(Note fundamental, int target_key)

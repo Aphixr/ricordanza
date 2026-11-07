@@ -1,14 +1,15 @@
 #include "logger.hpp"
 
-std::string Logger::s_last_msg { "" };
-
-unsigned Logger::s_last_msg_log_count { 0 };
-
 bool Logger::s_was_used { false };
-
+unsigned Logger::s_last_msg_log_count { 0 };
+std::string Logger::s_last_msg { "" };
 std::string Logger::s_last_update_name { "" };
-
 std::unordered_set<std::string> Logger::s_updates { };
+
+std::string Logger::get_log()
+{
+    return get_log_stream().str();
+}
 
 void Logger::info(const std::string& msg)
 {
@@ -16,14 +17,17 @@ void Logger::info(const std::string& msg)
     {
         s_last_msg_log_count = 1;
         s_last_msg = msg;
+        get_log_stream() << (s_was_used ? "\n" : "") << "[INFO] " << msg << std::flush;
         std::cout << (s_was_used ? "\n" : "") << "[INFO] " << msg << std::flush;
     }
     else
     {
         s_last_msg_log_count++;
+        get_log_stream() << "\n[INFO] " << msg << "\t\t(" << s_last_msg_log_count << "x)\t";
         std::cout << "\r[INFO] " << msg << "\t\t(" << s_last_msg_log_count << "x)\t";
     }
     s_was_used = true;
+    s_last_update_name = "";
 }
 
 void Logger::update(const std::string& name, const std::string& msg)
@@ -43,4 +47,11 @@ void Logger::update(const std::string& name, const std::string& msg)
     }
     s_last_msg = msg;
     s_last_update_name = name;
+}
+
+// to ensure stream is initialized
+std::ostringstream& Logger::get_log_stream()
+{
+    static std::ostringstream s_log_stream { "" };
+    return s_log_stream;
 }

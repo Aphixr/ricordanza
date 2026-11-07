@@ -33,6 +33,7 @@ struct InstanceData
 PianoRoll::PianoRoll()
     : m_audio { nullptr }
     , m_transcriber { nullptr }
+    , m_note_index { 0 }
     , m_time { 0.f }
     , m_scroll_vel { 0.f }
     , m_pixels_per_second { 100.f }
@@ -136,6 +137,7 @@ void PianoRoll::load_audio(std::string_view path)
 
     if (m_audio != nullptr)
     {
+        pause();
         delete m_audio;
     }
     if (m_transcriber != nullptr)
@@ -145,14 +147,101 @@ void PianoRoll::load_audio(std::string_view path)
 
     m_audio = new Audio { path };
     m_transcriber = new Transcriber { };
-    m_transcriber->run(m_audio->get_data());
+}
 
+void PianoRoll::transcribe_audio(TranscriberOptions options)
+{
+    delete m_transcriber;
+    m_transcriber = new Transcriber { };
+    m_transcriber->set_options(options);
+    m_transcriber->run(m_audio->get_data());
     m_is_ready = true;
+}
+
+unsigned PianoRoll::get_note_index() const
+{
+    return m_note_index;
+}
+
+unsigned PianoRoll::get_note_count() const
+{
+    if (m_transcriber == nullptr)
+    {
+        return 0;
+    }
+    return m_transcriber->get_note_count();
 }
 
 float PianoRoll::get_time() const
 {
     return m_time;
+}
+
+float PianoRoll::get_duration() const
+{
+    if (m_audio == nullptr)
+    {
+        return 0.f;
+    }
+    return m_audio->get_duration();
+}
+
+float PianoRoll::get_pixels_per_second() const
+{
+    return m_pixels_per_second;
+}
+
+std::string PianoRoll::get_file_name() const
+{
+    if (m_audio == nullptr)
+    {
+        return "";
+    }
+    std::string path { m_audio->get_path() };
+    return path.substr(path.find_last_of('/') + 1);
+}
+
+bool PianoRoll::is_playing() const
+{
+    return m_audio == nullptr ? false : m_audio->is_playing();
+}
+
+void PianoRoll::set_time(float time)
+{
+    if (m_audio != nullptr && m_audio->is_playing())
+    {
+        m_time = std::max(time, 0.f);
+        m_audio->pause();
+        m_audio->play(m_time);
+    }
+    else
+    {
+        // https://www.desmos.com/calculator/pkxj82y9jl
+        m_scroll_vel += (time - m_time) / 10.f;
+    }
+}
+
+void PianoRoll::set_pixels_per_second(float pps)
+{
+    m_pixels_per_second = std::min(std::max(pps, 5.f), 1000.f);
+}
+
+void PianoRoll::play()
+{
+    if (m_audio == nullptr || m_audio->is_playing())
+    {
+        return;
+    }
+    m_audio->play(m_time);
+}
+
+void PianoRoll::pause()
+{
+    if (m_audio == nullptr || !m_audio->is_playing())
+    {
+        return;
+    }
+    m_audio->pause();
 }
 
 void PianoRoll::render()
@@ -194,6 +283,8 @@ void PianoRoll::render()
 
     const float keyboard_top { 0.08f * App::get_window_width() };
 
+    m_note_index = 0;
+
     for (int key { 0 }; key < 88; key++)
     {
         // dimensions of note block
@@ -210,8 +301,13 @@ void PianoRoll::render()
             float height { (note.end_time - note.start_time + 0.02f) * m_pixels_per_second };
 
             // culling, skip notes completely off screen
-            if (y > App::get_window_height() || y + height < keyboard_top)
+            if (y > App::get_window_height())
             {
+                continue;
+            }
+            if (y + height < keyboard_top)
+            {
+                m_note_index++;
                 continue;
             }
 
