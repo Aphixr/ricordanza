@@ -135,14 +135,14 @@ void App::run()
                     piano_roll.get_note_index(),
                     piano_roll.get_note_count()
                 );
-                if (ImGui::ArrowButton("-10\% scale", ImGuiDir_Left))
+                if (ImGui::ArrowButton("-15\% pps", ImGuiDir_Left))
                 {
-                    piano_roll.set_pixels_per_second(0.9f * piano_roll.get_pixels_per_second());
+                    piano_roll.set_pixels_per_second(piano_roll.get_pixels_per_second() - 15.f);
                 }
                 ImGui::SameLine();
-                if (ImGui::ArrowButton("+11\% scale", ImGuiDir_Right))
+                if (ImGui::ArrowButton("+15\% pps", ImGuiDir_Right))
                 {
-                    piano_roll.set_pixels_per_second(1.1111f * piano_roll.get_pixels_per_second());
+                    piano_roll.set_pixels_per_second(piano_roll.get_pixels_per_second() + 15.f);
                 }
                 ImGui::SameLine();
                 ImGui::Text("%d pixels per second", (int)piano_roll.get_pixels_per_second());

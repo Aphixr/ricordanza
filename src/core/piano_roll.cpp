@@ -37,6 +37,7 @@ PianoRoll::PianoRoll()
     , m_time { 0.f }
     , m_scroll_vel { 0.f }
     , m_pixels_per_second { 100.f }
+    , m_pixels_per_second_vel { 0.f }
     , m_is_ready { false }
     , m_piano_program { }
     , m_notes_program { }
@@ -105,7 +106,7 @@ PianoRoll::PianoRoll()
         }
         if (App::is_key_pressed(GLFW_KEY_LEFT_CONTROL) || App::is_key_pressed(GLFW_KEY_RIGHT_CONTROL))
         {
-            m_pixels_per_second = std::max(std::min<float>(m_pixels_per_second - 2.f * y_offset, 1000.f), 5.f);
+            m_pixels_per_second_vel = -2.5f * y_offset;
         }
         else
         {
@@ -223,7 +224,7 @@ void PianoRoll::set_time(float time)
 
 void PianoRoll::set_pixels_per_second(float pps)
 {
-    m_pixels_per_second = std::min(std::max(pps, 5.f), 1000.f);
+    m_pixels_per_second_vel += (pps - m_pixels_per_second) / 10.f;
 }
 
 void PianoRoll::play()
@@ -271,6 +272,9 @@ void PianoRoll::render()
 
     Logger::update("timestamp"s, "timestamp: " + seconds_to_string(m_time) + " / " + seconds_to_string(m_audio->get_duration()));
 
+    m_pixels_per_second += m_pixels_per_second_vel;
+    m_pixels_per_second_vel *= 0.9f;
+
     m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);
 
     // render note blocks
@@ -301,14 +305,30 @@ void PianoRoll::render()
             float height { (note.end_time - note.start_time + 0.02f) * m_pixels_per_second };
 
             // culling, skip notes completely off screen
-            if (y > App::get_window_height())
+            if (m_pixels_per_second > 0)
             {
-                continue;
+                if (y > App::get_window_height())
+                {
+                    continue;
+                }
+                if (y + height < keyboard_top)
+                {
+                    m_note_index++;
+                    continue;
+                }
             }
-            if (y + height < keyboard_top)
+            else
             {
+                if (y + height > App::get_window_height())
+                {
+                    m_note_index++;
+                    continue;
+                }
+                if (y < keyboard_top)
+                {
+                    continue;
+                }
                 m_note_index++;
-                continue;
             }
 
             glm::vec3 color { 0.1f + note.onset_prob, 0.1f + (0.3f - 0.3f * note.onset_prob), 1.1f - note.onset_prob };
@@ -317,7 +337,7 @@ void PianoRoll::render()
             model = glm::scale(model, glm::vec3(width, height, 1.f));
             inst_data.emplace_back(model, glm::vec4(color, 1.f));
 
-            if (y < keyboard_top)
+            if ((m_pixels_per_second > 0 && y < keyboard_top) || (m_pixels_per_second <= 0 && y + height < keyboard_top))
             {
                 key_colors[key] = is_white_key(key) ? 1.2f * color : 0.8f * color;
             }

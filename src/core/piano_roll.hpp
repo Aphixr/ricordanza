@@ -73,6 +73,8 @@ private:
 
     float m_pixels_per_second;
 
+    float m_pixels_per_second_vel;
+
     // is it ready to render?
     bool m_is_ready;
 
