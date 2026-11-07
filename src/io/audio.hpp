@@ -2,12 +2,8 @@
 
 #include <string>
 #include <vector>
-#include <stdexcept>
 
 #include <miniaudio/miniaudio.h>
-
-#include "file_load_failure_exception.hpp"
-#include "../util/logger.hpp"
 
 class Audio
 {
@@ -15,6 +11,8 @@ class Audio
 public:
 
     Audio(std::string_view path);
+
+    ~Audio();
 
     // get the vector of 32-bit floats
     const std::vector<float>& get_data() const;
@@ -42,13 +40,15 @@ private:
     std::string m_path;
 
     std::vector<float> m_data;
-
-    // for playback
-    ma_engine m_engine;
+    
+    ma_uint32 m_playback_sample_rate;
 
     // for playback
     ma_sound m_sound;
-    
-    ma_uint32 m_playback_sample_rate;
+
+    // for playback
+    inline static ma_engine s_engine { };
+
+    inline static bool s_is_ma_engine_init { false };
 
 };

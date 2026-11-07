@@ -4,14 +4,18 @@
 
 using namespace std::literals;
 
-Transcriber::Transcriber(const std::string& model_path)
-    : m_input_shape { 1, s_chunk_size, 1 }
-    , m_env { ORT_LOGGING_LEVEL_WARNING, "ricordanza" }
-    , m_session { nullptr }
-    , m_memory_info { Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault) }
-    , m_notes { }
-    , m_frame_probs { }
-    , m_onset_probs { }
+Ort::Env Transcriber::s_env { ORT_LOGGING_LEVEL_WARNING, "ricordanza" };
+Ort::Session Transcriber::s_session { nullptr };
+Ort::MemoryInfo Transcriber::s_memory_info { Ort::MemoryInfo::CreateCpu(OrtArenaAllocator, OrtMemTypeDefault) };
+
+std::vector<int64_t> Transcriber::s_input_shape { 1, Transcriber::s_chunk_size, 1 };
+
+std::string Transcriber::s_input_name { };
+std::string Transcriber::s_note_name { };
+std::string Transcriber::s_onset_name { };
+std::string Transcriber::s_contour_name { };
+
+void Transcriber::init_ort(const std::string& model_path)
 {
     Logger::info("initializing onnx model '" + model_path + "'...");
 
@@ -19,7 +23,7 @@ Transcriber::Transcriber(const std::string& model_path)
     Ort::SessionOptions session_options;
     session_options.SetIntraOpNumThreads(2);
 
-    m_session = Ort::Session(m_env, model_path.c_str(), session_options);
+    s_session = Ort::Session(s_env, model_path.c_str(), session_options);
 
     // create default allocator to handle the string memory
     Ort::AllocatorWithDefaultOptions allocator;
@@ -29,23 +33,36 @@ Transcriber::Transcriber(const std::string& model_path)
     // "note": pitch probabilities
     // "onset": whether key was just struck
     // "contour": micro-pitch bending (ignore)
-    Ort::AllocatedStringPtr input_name_ptr = m_session.GetInputNameAllocated(0, allocator);
-    Ort::AllocatedStringPtr out_note_ptr = m_session.GetOutputNameAllocated(0, allocator);
-    Ort::AllocatedStringPtr out_onset_ptr = m_session.GetOutputNameAllocated(1, allocator);
-    Ort::AllocatedStringPtr out_contour_ptr = m_session.GetOutputNameAllocated(2, allocator);
+    Ort::AllocatedStringPtr input_name_ptr = s_session.GetInputNameAllocated(0, allocator);
+    Ort::AllocatedStringPtr out_note_ptr = s_session.GetOutputNameAllocated(0, allocator);
+    Ort::AllocatedStringPtr out_onset_ptr = s_session.GetOutputNameAllocated(1, allocator);
+    Ort::AllocatedStringPtr out_contour_ptr = s_session.GetOutputNameAllocated(2, allocator);
 
-    m_input_name = input_name_ptr.get();
-    m_note_name = out_note_ptr.get();
-    m_onset_name = out_onset_ptr.get();
-    m_contour_name = out_contour_ptr.get();
+    s_input_name = input_name_ptr.get();
+    s_note_name = out_note_ptr.get();
+    s_onset_name = out_onset_ptr.get();
+    s_contour_name = out_contour_ptr.get();
 
+    s_is_ort_init = true;
+
+    Logger::info("input names: "s + s_input_name);
+    Logger::info("output names: "s + s_note_name + ", "s + s_onset_name + ", "s + s_contour_name);
+    Logger::info("done: initialized onnx model '" + model_path + "'");
+}
+
+Transcriber::Transcriber()
+    : m_notes { }
+    , m_frame_probs { }
+    , m_onset_probs { }
+{
     m_notes.resize(88);
     m_frame_probs.resize(88);
     m_onset_probs.resize(88);
 
-    Logger::info("input names: "s + m_input_name);
-    Logger::info("output names: "s + m_note_name + ", "s + m_onset_name + ", "s + m_contour_name);
-    Logger::info("done: initialized onnx model '" + model_path + "'");
+    if (!s_is_ort_init)
+    {
+        init_ort("basic_pitch.onnx");
+    }
 }
 
 const std::vector<std::vector<Note>>& Transcriber::get_notes() const
@@ -153,24 +170,24 @@ void Transcriber::generate_probabilities(const std::vector<float>& raw)
 {
     Logger::info("generating probabilities...");
 
-    const char* input_names[] { m_input_name.c_str() };
-    const char* output_names[] { m_note_name.c_str(), m_onset_name.c_str(), m_contour_name.c_str() };
+    const char* input_names[] { s_input_name.c_str() };
+    const char* output_names[] { s_note_name.c_str(), s_onset_name.c_str(), s_contour_name.c_str() };
 
     // loop through entire audio in chunks
     for (size_t offset { 0 }; offset + s_chunk_size <= raw.size(); offset += s_chunk_size)
     {
-        Ort::Value inputTensor = Ort::Value::CreateTensor<float>(
-            m_memory_info,
+        Ort::Value input_tensor = Ort::Value::CreateTensor<float>(
+            s_memory_info,
             const_cast<float*>(raw.data() + offset),
             s_chunk_size,
-            m_input_shape.data(),
-            m_input_shape.size()
+            s_input_shape.data(),
+            s_input_shape.size()
         );
         
         // run neural network
-        std::vector<Ort::Value> output_tensors = m_session.Run(
+        std::vector<Ort::Value> output_tensors = s_session.Run(
             Ort::RunOptions{nullptr},
-            input_names, &inputTensor, 1,
+            input_names, &input_tensor, 1,
             output_names, 3
         );
 
@@ -212,7 +229,7 @@ void Transcriber::filter_out_overtones(Note fundamental, int target_key)
         {
             continue;
         }
-        if (target.onset_prob < 0.55f * fundamental.onset_prob)
+        if (target.onset_prob < 0.42f * fundamental.onset_prob)
         {
             m_notes[target_key].erase(m_notes[target_key].begin() + i);
             i--;

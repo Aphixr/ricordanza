@@ -25,6 +25,8 @@ public:
 
     static void on_scroll(const std::function<void (double x_offset, double y_offset)>& callback);
 
+    static void on_drop(const std::function<void (int count, const char** paths)>& callback);
+
     static bool is_key_pressed(int glfw_key_code);
 
     static void run();
@@ -43,6 +45,8 @@ private:
 
     inline static std::vector<std::pair<int, std::function<void ()>>> on_key_down_callbacks { };
 
+    inline static std::vector<std::function<void (int, const char**)>> on_drop_callbacks { };
+
     inline static PianoRoll piano_roll { };
 
     static void window_size_callback(GLFWwindow*, int width, int height);
@@ -50,6 +54,8 @@ private:
     static void key_down_callback(GLFWwindow*, int key, int scancode, int action, int mods);
 
     static void scroll_callback(GLFWwindow*, double x_offset, double y_offset);
+
+    static void drop_callback(GLFWwindow*, int count, const char** paths);
 
     App() = default;
 

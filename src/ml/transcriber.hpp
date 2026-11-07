@@ -19,7 +19,7 @@ class Transcriber
 
 public:
 
-    Transcriber(const std::string& model_path);
+    Transcriber();
 
     const std::vector<std::vector<Note>>& get_notes() const;
 
@@ -28,22 +28,6 @@ public:
     void run(const std::vector<float>& raw);
 
 private:
-
-    std::vector<int64_t> m_input_shape;
-
-    std::string m_input_name;
-
-    std::string m_note_name;
-
-    std::string m_onset_name;
-
-    std::string m_contour_name;
-
-    Ort::Env m_env;
-    
-    Ort::Session m_session;
-
-    Ort::MemoryInfo m_memory_info;
 
     // [key 0-87][note]
     std::vector<std::vector<Note>> m_notes;
@@ -66,5 +50,25 @@ private:
 
     // about 0.0115 seconds
     inline static const float s_frame_duration { (float)s_chunk_size / 22050.f / s_frames_per_chunk };
+
+    inline static bool s_is_ort_init { false };
+
+    static Ort::Env s_env;
+    
+    static Ort::Session s_session;
+
+    static Ort::MemoryInfo s_memory_info;
+
+    static std::vector<int64_t> s_input_shape;
+
+    static std::string s_input_name;
+
+    static std::string s_note_name;
+
+    static std::string s_onset_name;
+
+    static std::string s_contour_name;
+
+    static void init_ort(const std::string& model_path);
 
 };

@@ -1,11 +1,13 @@
 #include "audio.hpp"
 
+#include "../util/logger.hpp"
+#include "file_load_failure_exception.hpp"
+
 using namespace std::literals;
 
 Audio::Audio(std::string_view path)
     : m_path { path }
     , m_data { }
-    , m_engine { }
     , m_sound { }
     , m_playback_sample_rate { }
 {
@@ -53,15 +55,24 @@ Audio::Audio(std::string_view path)
     }
 
     // initialize stuff for playback
-    ma_engine_init(NULL, &m_engine);
-    ma_sound_init_from_file(&m_engine, m_path.c_str(), 0, NULL, NULL, &m_sound);
-    m_playback_sample_rate = ma_engine_get_sample_rate(&m_engine);
+    if (!s_is_ma_engine_init)
+    {
+        ma_engine_init(NULL, &s_engine);
+        s_is_ma_engine_init = true;
+    }
+    ma_sound_init_from_file(&s_engine, m_path.c_str(), 0, NULL, NULL, &m_sound);
+    m_playback_sample_rate = ma_engine_get_sample_rate(&s_engine);
 
     Logger::info(
         "done: loaded audio file '" + m_path + "' (" +
         std::to_string((int)get_duration() / 60) + " min " +
         std::to_string((int)get_duration() % 60) + " sec)"
     );
+}
+
+Audio::~Audio()
+{
+    ma_sound_uninit(&m_sound);
 }
 
 const std::vector<float>& Audio::get_data() const

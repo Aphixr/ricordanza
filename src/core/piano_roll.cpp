@@ -2,10 +2,14 @@
 
 #include <vector>
 
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include "app.hpp"
 #include "../io/shader_manager.hpp"
 #include "../util/pitch.hpp"
 #include "../util/time.hpp"
+#include "../util/logger.hpp"
 #include "../ml/transcriber.hpp"
 
 using namespace std::literals;
@@ -31,6 +35,8 @@ PianoRoll::PianoRoll()
     , m_transcriber { nullptr }
     , m_time { 0.f }
     , m_scroll_vel { 0.f }
+    , m_pixels_per_second { 100.f }
+    , m_is_ready { false }
     , m_piano_program { }
     , m_notes_program { }
     , m_vao { }
@@ -73,8 +79,45 @@ PianoRoll::PianoRoll()
     m_notes_vao.unbind();
     m_inst_vbo.unbind();
 
+    App::on_key_down(GLFW_KEY_SPACE, [this]()
+    {
+        if (!m_is_ready)
+        {
+            return;
+        }
+        if (!m_audio->is_playing())
+        {
+            m_time = std::max(m_time, 0.f);
+            m_audio->play(m_time);
+        }
+        else
+        {
+            m_audio->pause();
+        }
+    });
+
+    App::on_scroll([this](double x_offset, double y_offset)
+    {
+        if (!m_is_ready)
+        {
+            return;
+        }
+        if (App::is_key_pressed(GLFW_KEY_LEFT_CONTROL) || App::is_key_pressed(GLFW_KEY_RIGHT_CONTROL))
+        {
+            m_pixels_per_second = std::max(std::min<float>(m_pixels_per_second - 2.f * y_offset, 1000.f), 5.f);
+        }
+        else
+        {
+            m_scroll_vel = 1.2f * y_offset * (100.f / m_pixels_per_second);
+        }
+    });
+
     App::on_render([this]()
     {
+        if (!m_is_ready)
+        {
+            return;
+        }
         render();
     });
 }
@@ -89,6 +132,8 @@ PianoRoll::~PianoRoll()
 
 void PianoRoll::load_audio(std::string_view path)
 {
+    m_is_ready = false;
+
     if (m_audio != nullptr)
     {
         delete m_audio;
@@ -99,33 +144,10 @@ void PianoRoll::load_audio(std::string_view path)
     }
 
     m_audio = new Audio { path };
-    m_transcriber = new Transcriber { "basic_pitch.onnx" };
+    m_transcriber = new Transcriber { };
     m_transcriber->run(m_audio->get_data());
 
-    App::on_key_down(GLFW_KEY_SPACE, [this]()
-    {
-        if (!m_audio->is_playing())
-        {
-            m_time = std::max(m_time, 0.f);
-            m_audio->play(m_time);
-        }
-        else
-        {
-            m_audio->pause();
-        }
-    });
-
-    App::on_scroll([this](double x_offset, double y_offset)
-    {
-        if (App::is_key_pressed(GLFW_KEY_LEFT_CONTROL) || App::is_key_pressed(GLFW_KEY_RIGHT_CONTROL))
-        {
-            m_pixels_per_second = std::max(std::min<float>(m_pixels_per_second - 2.f * y_offset, 1000.f), 5.f);
-        }
-        else
-        {
-            m_scroll_vel = 1.2f * y_offset * (100.f / m_pixels_per_second);
-        }
-    });
+    m_is_ready = true;
 }
 
 float PianoRoll::get_time() const
@@ -157,6 +179,7 @@ void PianoRoll::render()
         }
         m_scroll_vel = 0.f;
     }
+
     Logger::update("timestamp"s, "timestamp: " + seconds_to_string(m_time) + " / " + seconds_to_string(m_audio->get_duration()));
 
     m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);

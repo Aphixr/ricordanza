@@ -3,8 +3,6 @@
 #include <string>
 
 #include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 
 #include "../io/audio.hpp"
 #include "../gl/glacier.hpp"
@@ -49,7 +47,10 @@ private:
 
     float m_scroll_vel;
 
-    float m_pixels_per_second { 100.f };
+    float m_pixels_per_second;
+
+    // is it ready to render?
+    bool m_is_ready;
 
     gl::Program m_piano_program;
 

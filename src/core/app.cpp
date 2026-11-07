@@ -24,8 +24,16 @@ void App::init()
     glfwSetWindowSizeCallback(window.m_window, window_size_callback);
     glfwSetKeyCallback(window.m_window, key_down_callback);
     glfwSetScrollCallback(window.m_window, scroll_callback);
+    glfwSetDropCallback(window.m_window, drop_callback);
 
-    piano_roll.load_audio("contemplation.wav");
+    on_drop([=](int count, const char** paths)
+    {
+        std::string path { paths[0] };
+        if (path.ends_with(".mp3") || path.ends_with(".wav") || path.ends_with(".flac"))
+        {
+            piano_roll.load_audio(paths[0]);
+        }
+    });
 }
 
 int App::get_window_width()
@@ -51,6 +59,11 @@ void App::on_key_down(int key_code, const std::function<void()>& callback)
 void App::on_scroll(const std::function<void (double x_offset, double y_offset)>& callback)
 {
     on_scroll_callbacks.push_back(callback);
+}
+
+void App::on_drop(const std::function<void (int count, const char** paths)>& callback)
+{
+    on_drop_callbacks.push_back(callback);
 }
 
 bool App::is_key_pressed(int key_code)
@@ -102,5 +115,13 @@ void App::scroll_callback(GLFWwindow*, double x_offset, double y_offset)
     for (std::function<void (double, double)>& callback : on_scroll_callbacks)
     {
         callback(x_offset, y_offset);
+    }
+}
+
+void App::drop_callback(GLFWwindow*, int count, const char** paths)
+{
+    for (std::function<void (int, const char**)>& callback : on_drop_callbacks)
+    {
+        callback(count, paths);
     }
 }
