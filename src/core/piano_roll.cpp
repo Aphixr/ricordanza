@@ -151,6 +151,11 @@ void PianoRoll::load_audio(std::string_view path)
 
 void PianoRoll::transcribe_audio(TranscriberOptions options)
 {
+    if (m_audio == nullptr)
+    {
+        Logger::info("load an audio file first before transcribing");
+        return;
+    }
     delete m_transcriber;
     m_transcriber = new Transcriber { };
     m_transcriber->set_options(options);
