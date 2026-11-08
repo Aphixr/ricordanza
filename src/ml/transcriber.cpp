@@ -96,6 +96,18 @@ void Transcriber::init_chord_shapes()
     s_interval_to_index.insert({ "17", 4 });
     s_interval_to_index.insert({ "21", 11 });
 
+    define_chord_shape(ChordType::int_unison, { "1" });
+    define_chord_shape(ChordType::int_min_2, { "1", "2-" });
+    define_chord_shape(ChordType::int_maj_2, { "1", "2" });
+    define_chord_shape(ChordType::int_min_3, { "1", "3-" });
+    define_chord_shape(ChordType::int_maj_3, { "1", "3" });
+    define_chord_shape(ChordType::int_perf_4, { "1", "4" });
+    define_chord_shape(ChordType::int_tritone, { "1", "4+" });
+    define_chord_shape(ChordType::int_perf_5, { "1", "5" });
+    define_chord_shape(ChordType::int_min_6, { "1", "6-" });
+    define_chord_shape(ChordType::int_maj_6, { "1", "6-" });
+    define_chord_shape(ChordType::int_min_7, { "1", "7-" });
+    define_chord_shape(ChordType::int_maj_7, { "1", "7" });
     define_chord_shape(ChordType::maj, { "1", "3", "5" });
     define_chord_shape(ChordType::min, { "1", "3-", "5" });
     define_chord_shape(ChordType::aug, { "1", "3", "5+" });
@@ -110,6 +122,15 @@ void Transcriber::init_chord_shapes()
     define_chord_shape(ChordType::dim_7, { "1", "3-", "4+", "6" });
     define_chord_shape(ChordType::dom_7_sus_2, { "1", "2", "5", "7-" });
     define_chord_shape(ChordType::dom_7_sus_4, { "1", "4", "5", "7-" });
+    define_chord_shape(ChordType::dom_9, { "1", "3", "5", "7-", "9" });
+    define_chord_shape(ChordType::maj_9, { "1", "3", "5", "7", "9" });
+    define_chord_shape(ChordType::min_9, { "1", "3-", "5", "7-", "9" });
+    define_chord_shape(ChordType::sus_9, { "1", "4", "5", "7-", "9" });
+    define_chord_shape(ChordType::dom_7_flat_9, { "1", "3", "5", "7-", "9-" });
+    define_chord_shape(ChordType::six_nine, { "1", "3", "5", "6", "9" });
+    define_chord_shape(ChordType::quartal, { "1", "4", "7-", "10-", "13-" });
+    define_chord_shape(ChordType::quintal, { "1", "5", "9", "13", "17", "21" });
+    define_chord_shape(ChordType::scriabin_mystic, { "1", "4+", "7-", "10", "13", "16" });
 
     Logger::info("done: initialized chord shapes");
 }
@@ -142,7 +163,10 @@ Transcriber::Transcriber()
         init_ort("basic_pitch.onnx");
     }
 
-    init_chord_shapes();
+    if (s_chord_shapes.size() == 0)
+    {
+        init_chord_shapes();
+    }
 }
 
 const std::vector<std::vector<Note>>& Transcriber::get_notes() const
@@ -346,7 +370,7 @@ void Transcriber::filter_out_overtones(Note fundamental, int target_key)
 // For each chunk, figure out how much each key is sustained.
 // The longer it is sustained, the more weight it is given.
 // Then it tries to use the 88 weights to match to a ChordType.
-// Then it repeats all the aforementioned steps, but with larger and larger chunks, up to 10s chunks.
+// Then it repeats all the aforementioned steps, but with larger and larger chunks, up to 10s chunks. (not yet implemented)
 // The chunks grow by a factor of 2.
 // I have no idea if this is going to work, be here's my reasoning:
 // Starting with small chunks, it may detect a chord, or it may not (ChordType::unknown)
@@ -385,10 +409,8 @@ void Transcriber::generate_chords()
                     break;
                 }
 
-                // the closer the note is to the end of the chunk, the more weight given (maybe not)
-                // https://www.desmos.com/calculator/3h0zcb7hpu
-                // weights[key] += std::log(1 + std::exp(note.end_time) - std::exp(note.start_time)) / chunk_size;
                 weights[key % 12] += (note.end_time - note.start_time) / chunk_size;
+                weights[key % 12] = std::min(weights[key % 12], 1.f);
             }
         }
 
@@ -401,7 +423,7 @@ void Transcriber::generate_chords()
             chord_probs.push_back(get_chord_probability(type, weights));
         }
 
-        ChordProbability most_likely_chord { Letter::a, ChordType::other, 0.f };
+        ChordProbability most_likely_chord { Letter::none, ChordType::other, 0.f };
 
         // find the chord with the greatest probability
         for (ChordProbability chord_prob : chord_probs)
@@ -453,6 +475,10 @@ ChordProbability Transcriber::get_chord_probability(ChordType type, std::vector<
             if (s_chord_shapes[type][(i - root + 12) % 12])
             {
                 prob += weights[i];
+            }
+            else
+            {
+                prob -= weights[i];
             }
             i++;
             i %= 12;
