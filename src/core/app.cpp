@@ -99,7 +99,7 @@ void App::run()
                     : "Drag and drop an audio file (.mp3, .wav, .flac) to load it."
                 );
                 ImGui::Checkbox("Connect broken notes", &state_connect_broken_notes);
-                ImGui::Checkbox("Filter out harmonic overtones (experimental)", &state_filter_overtones);
+                ImGui::Checkbox("Filter out harmonic overtones", &state_filter_overtones);
                 if (ImGui::Button("Transcribe"))
                 {
                     piano_roll.transcribe_audio({ state_connect_broken_notes, state_filter_overtones });

@@ -331,41 +331,88 @@ void Transcriber::filter_out_overtones()
     Logger::info("filtering out harmonic overtones");
 
     // filter out harmonic overtones
-    for (int key { 0 }; key < 88; key++)
+    for (int key { 87 }; key >= 0; key--)
     {
-        for (Note& note : m_notes[key])
+        for (int i { 0 }; i < m_notes[key].size(); i++)
         {
-            filter_out_overtones(note, key + 12); // 1 octave higher
-            filter_out_overtones(note, key + 19); // 1 octave plus perfect 5th higher
-            filter_out_overtones(note, key + 24); // 2 octaves higher
-            filter_out_overtones(note, key + 28); // 2 octaves plus major 3rd higher
+            float start { m_notes[key][i].start_time };
+            float end { m_notes[key][i].end_time };
+            for (int j { i + 1 }; j < m_notes[key].size(); j++)
+            {
+                if (m_notes[key][j].start_time - end > 0.1f)
+                {
+                    break;
+                }
+                end = m_notes[key][j].end_time;
+            }
+
+            filter_out_overtones(start, end, key + 28); // 2 octaves plus major 3rd higher
+            filter_out_overtones(start, end, key + 24); // 2 octaves higher
+            filter_out_overtones(start, end, key + 19); // 1 octave plus perfect 5th higher
+            filter_out_overtones(start, end, key + 12); // 1 octave higher
         }
     }
 
     Logger::info("done: filtered out harmonic overtones (" + std::to_string(get_note_count()) + " notes)");
 }
 
-void Transcriber::filter_out_overtones(Note fundamental, int target_key)
+void Transcriber::filter_out_overtones(float start_time, float end_time, int target_key)
 {
     if (target_key >= 88)
     {
         return;
     }
 
-    for (int i { 0 }; i < m_notes[target_key].size(); i++)
+    for (int i { 0 }; i < (int)(m_notes[target_key].size()); i++)
     {
-        Note& target { m_notes[target_key][i] };
-        if (target.end_time - fundamental.end_time > 0.1f)
-        {
-            break;
-        }
-        if (target.start_time - fundamental.start_time < -0.1f)
+        Note& curr { m_notes[target_key][i] };
+
+        if (curr.start_time - start_time < -0.1f)
         {
             continue;
         }
-        if (target.onset_prob < 0.42f * fundamental.onset_prob)
+        if (curr.end_time - end_time > 0.1f)
         {
-            m_notes[target_key].erase(m_notes[target_key].begin() + i);
+            break;
+        }
+
+        std::vector<Note> connected_notes { curr };
+
+        // find all connected notes
+        for (int j { i + 1 }; j < (int)(m_notes[target_key].size()); j++)
+        {
+            Note& next { m_notes[target_key][j] };
+            if (next.start_time - curr.end_time > 1.5f * s_frame_duration)
+            {
+                break;
+            }
+            connected_notes.push_back(next);
+        }
+
+        // get the weighted average of the onset and max frame probabilities of the connected notes
+        float weighted_avg_onset_prob { 0.f };
+        float weighted_avg_max_frame_prob { 0.f };
+        float total_duration { 0.f };
+        for (Note& note : connected_notes)
+        {
+            float duration { note.end_time - note.start_time };
+            weighted_avg_onset_prob += note.onset_prob * duration;
+            weighted_avg_max_frame_prob += note.max_frame_prob * duration;
+            total_duration += duration;
+        }
+        if (total_duration > 0.f)
+        {
+            weighted_avg_onset_prob /= total_duration;
+            weighted_avg_max_frame_prob /= total_duration;
+        }
+
+        // if the weighted average of the probabilities is less than the thresholds, remove all connected notes
+        if (weighted_avg_onset_prob < 0.4f || weighted_avg_max_frame_prob < 0.5f)
+        {
+            for (int j { 0 }; j < (int)(connected_notes.size()); j++)
+            {
+                m_notes[target_key].erase(m_notes[target_key].begin() + i);
+            }
             i--;
         }
     }

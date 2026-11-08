@@ -62,7 +62,8 @@ private:
 
     void filter_out_overtones();
 
-    void filter_out_overtones(Note fundamental, int target_key);
+    // start and end are the timestamps to examine in seconds
+    void filter_out_overtones(float start_time, float end_time, int target_key);
 
     void connect_broken_notes();
 
