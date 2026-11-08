@@ -7,6 +7,7 @@
 #include "../io/audio.hpp"
 #include "../gl/glacier.hpp"
 #include "../ml/transcriber.hpp"
+#include "../util/chord.hpp"
 
 class PianoRoll
 {
@@ -32,6 +33,9 @@ public:
     float get_pixels_per_second() const;
 
     std::string get_file_name() const;
+
+    // current chord
+    Chord get_chord() const;
 
     bool is_playing() const;
 

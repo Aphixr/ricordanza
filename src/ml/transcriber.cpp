@@ -1,6 +1,9 @@
 #include "transcriber.hpp"
 
+#include <cmath>
+
 #include "../util/logger.hpp"
+#include "../util/pitch.hpp"
 
 using namespace std::literals;
 
@@ -14,6 +17,10 @@ std::string Transcriber::s_input_name { };
 std::string Transcriber::s_note_name { };
 std::string Transcriber::s_onset_name { };
 std::string Transcriber::s_contour_name { };
+
+std::unordered_map<ChordType, std::vector<bool>> Transcriber::s_chord_shapes { };
+
+std::unordered_map<std::string, int> Transcriber::s_interval_to_index { };
 
 void Transcriber::init_ort(const std::string& model_path)
 {
@@ -50,6 +57,76 @@ void Transcriber::init_ort(const std::string& model_path)
     Logger::info("done: initialized onnx model '" + model_path + "'");
 }
 
+void Transcriber::init_chord_shapes()
+{
+    Logger::info("initializing chord shapes...");
+    
+    s_interval_to_index.insert({ "1", 0 });
+    s_interval_to_index.insert({ "2-", 1 });
+    s_interval_to_index.insert({ "2", 2 });
+    s_interval_to_index.insert({ "2+", 3 });
+    s_interval_to_index.insert({ "3-", 3 });
+    s_interval_to_index.insert({ "3", 4 });
+    s_interval_to_index.insert({ "3+", 5 });
+    s_interval_to_index.insert({ "4-", 4 });
+    s_interval_to_index.insert({ "4", 5 });
+    s_interval_to_index.insert({ "4+", 6 });
+    s_interval_to_index.insert({ "5-", 6 });
+    s_interval_to_index.insert({ "5", 7 });
+    s_interval_to_index.insert({ "5+", 8 });
+    s_interval_to_index.insert({ "6-", 8 });
+    s_interval_to_index.insert({ "6", 9 });
+    s_interval_to_index.insert({ "6+", 10 });
+    s_interval_to_index.insert({ "7-", 10 });
+    s_interval_to_index.insert({ "7", 11 });
+    s_interval_to_index.insert({ "8", 0 });
+    s_interval_to_index.insert({ "9-", 1 });
+    s_interval_to_index.insert({ "9", 2 });
+    s_interval_to_index.insert({ "9+", 3 });
+    s_interval_to_index.insert({ "10-", 3 });
+    s_interval_to_index.insert({ "10", 4 });
+    s_interval_to_index.insert({ "10+", 5 });
+    s_interval_to_index.insert({ "11-", 4 });
+    s_interval_to_index.insert({ "11", 5 });
+    s_interval_to_index.insert({ "11+", 6 });
+    s_interval_to_index.insert({ "13-", 8 });
+    s_interval_to_index.insert({ "13", 9 });
+    s_interval_to_index.insert({ "13+", 10 });
+    s_interval_to_index.insert({ "16", 2 });
+    s_interval_to_index.insert({ "17", 4 });
+    s_interval_to_index.insert({ "21", 11 });
+
+    define_chord_shape(ChordType::maj, { "1", "3", "5" });
+    define_chord_shape(ChordType::min, { "1", "3-", "5" });
+    define_chord_shape(ChordType::aug, { "1", "3", "5+" });
+    define_chord_shape(ChordType::dim, { "1", "3-", "5-" });
+    define_chord_shape(ChordType::sus_2, { "1", "2", "5" });
+    define_chord_shape(ChordType::sus_4, { "1", "4", "5" });
+    define_chord_shape(ChordType::maj_6, { "1", "3", "5", "6" });
+    define_chord_shape(ChordType::dom_7, { "1", "3", "5", "7-" });
+    define_chord_shape(ChordType::maj_7, { "1", "3", "5", "7" });
+    define_chord_shape(ChordType::min_7, { "1", "3-", "5", "7-" });
+    define_chord_shape(ChordType::half_dim_7, { "1", "3-", "5-", "7-" });
+    define_chord_shape(ChordType::dim_7, { "1", "3-", "4+", "6" });
+    define_chord_shape(ChordType::dom_7_sus_2, { "1", "2", "5", "7-" });
+    define_chord_shape(ChordType::dom_7_sus_4, { "1", "4", "5", "7-" });
+
+    Logger::info("done: initialized chord shapes");
+}
+
+void Transcriber::define_chord_shape(ChordType type, std::vector<std::string> shape)
+{
+    std::vector<bool> bool_shape;
+    bool_shape.resize(12, false);
+
+    for (std::string interval : shape)
+    {
+        bool_shape[s_interval_to_index[interval]] = true;
+    }
+
+    s_chord_shapes.emplace(type, bool_shape);
+}
+
 Transcriber::Transcriber()
     : m_options { false }
     , m_notes { }
@@ -64,11 +141,18 @@ Transcriber::Transcriber()
     {
         init_ort("basic_pitch.onnx");
     }
+
+    init_chord_shapes();
 }
 
 const std::vector<std::vector<Note>>& Transcriber::get_notes() const
 {
     return m_notes;
+}
+
+const std::vector<Chord>& Transcriber::get_chords() const
+{
+    return m_chords;
 }
 
 unsigned Transcriber::get_note_count() const
@@ -96,6 +180,8 @@ void Transcriber::run(const std::vector<float>& raw)
     {
         filter_out_overtones();
     }
+
+    generate_chords();
 }
 
 void Transcriber::generate_probabilities(const std::vector<float>& raw)
@@ -254,4 +340,133 @@ void Transcriber::filter_out_overtones(Note fundamental, int target_key)
             i--;
         }
     }
+}
+
+// Looks at 0.1s chunks at a time, and each chunk are offset by 0.1s, regardless of chunk size.
+// For each chunk, figure out how much each key is sustained.
+// The longer it is sustained, the more weight it is given.
+// Then it tries to use the 88 weights to match to a ChordType.
+// Then it repeats all the aforementioned steps, but with larger and larger chunks, up to 10s chunks.
+// The chunks grow by a factor of 2.
+// I have no idea if this is going to work, be here's my reasoning:
+// Starting with small chunks, it may detect a chord, or it may not (ChordType::unknown)
+// It may be unable to detect the chord because the chord notes are too spread out.
+// For example, imagine playing the notes C after 0 seconds, E after 2 seconds, G after 4 seconds.
+// A small chunk of 0.1s would not be able to detect the a C major chord is played, and instead give a ChordType::int_...
+// But at the same time, small chunks are needed to detect rapid changes in chords;
+// e.g. imagine playing I, bII, V7, I in the span of 1 second.
+// So, the larger chunks will attempt to fill up the gaps left by the smaller chunks, hopefully finding a real ChordType.
+void Transcriber::generate_chords()
+{
+    const float chunk_size = 0.1f;
+    const float chunk_offset = 0.1f;
+
+    for (float s { chunk_offset - chunk_size }; s + chunk_size < m_frame_probs[0].size() * s_frame_duration; s += chunk_offset)
+    {
+        const float start { std::max(s, 0.f) };
+        const float end { s + chunk_size };
+
+        // 1 weight for each Letter
+        // index 0 = A, index 11 = G-sharp
+        std::vector<float> weights { };
+        weights.resize(12, 0.f);
+
+        // generate weights
+        for (int key { 0 }; key < 88; key++)
+        {
+            for (Note& note : m_notes[key])
+            {
+                if (note.end_time <= start)
+                {
+                    continue;
+                }
+                if (note.start_time >= end)
+                {
+                    break;
+                }
+
+                // the closer the note is to the end of the chunk, the more weight given (maybe not)
+                // https://www.desmos.com/calculator/3h0zcb7hpu
+                // weights[key] += std::log(1 + std::exp(note.end_time) - std::exp(note.start_time)) / chunk_size;
+                weights[key % 12] += (note.end_time - note.start_time) / chunk_size;
+            }
+        }
+
+        // get chord probabilities based on weights
+        std::vector<ChordProbability> chord_probs { };
+        chord_probs.reserve(47);
+
+        for (const auto& [ type, shape ] : s_chord_shapes)
+        {
+            chord_probs.push_back(get_chord_probability(type, weights));
+        }
+
+        ChordProbability most_likely_chord { Letter::a, ChordType::other, 0.f };
+
+        // find the chord with the greatest probability
+        for (ChordProbability chord_prob : chord_probs)
+        {
+            if (chord_prob.prob > most_likely_chord.prob)
+            {
+                most_likely_chord = chord_prob;
+            }
+        }
+
+        // insert this most likely chord into the vector
+        m_chords.emplace_back(
+            most_likely_chord.root,
+            most_likely_chord.type,
+            most_likely_chord.prob,
+            start,
+            end
+        );
+    }
+}
+
+ChordProbability Transcriber::get_chord_probability(ChordType type, std::vector<float> weights)
+{
+    int most_prob_root;
+    float most_prob { 0.f };
+
+    // first, check how many notes this chord expects
+    int num_notes { 0 };
+    for (bool yes : s_chord_shapes[type])
+    {
+        if (yes)
+        {
+            num_notes++;
+        }
+    }
+
+    // we need to check all 12 different possible root notes
+    // for each root
+    for (int root { 0 }; root < 12; root++)
+    {
+        float prob { 0.f };
+
+        // compare each weight to its corresponding position in the chord shape
+        // no way this absolutely cryptic-looking algorithm worked on the first try
+        // type of sht you see on a cs assignment
+        int i { root };
+        do
+        {
+            if (s_chord_shapes[type][(i - root + 12) % 12])
+            {
+                prob += weights[i];
+            }
+            i++;
+            i %= 12;
+        }
+        while (i != root);
+
+        prob /= num_notes;
+
+        if (prob > most_prob)
+        {
+            most_prob = prob;
+            most_prob_root = root;
+        }
+    }
+
+    return { key_to_pitch(most_prob_root).letter, type, most_prob };
 }

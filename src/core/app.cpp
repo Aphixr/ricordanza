@@ -146,6 +146,11 @@ void App::run()
                 }
                 ImGui::SameLine();
                 ImGui::Text("%d pixels per second", (int)piano_roll.get_pixels_per_second());
+                ImGui::Text("Chord: %s %s (confidence: %.3f)",
+                    key_to_letter_string((int)piano_roll.get_chord().root).c_str(),
+                    chord_type_to_string(piano_roll.get_chord().type).c_str(),
+                    piano_roll.get_chord().prob
+                );
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Log"))

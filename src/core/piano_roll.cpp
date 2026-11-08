@@ -147,7 +147,6 @@ void PianoRoll::load_audio(std::string_view path)
     }
 
     m_audio = new Audio { path };
-    m_transcriber = new Transcriber { };
 }
 
 void PianoRoll::transcribe_audio(TranscriberOptions options)
@@ -200,6 +199,22 @@ std::string PianoRoll::get_file_name() const
     }
     std::string path { m_audio->get_path() };
     return path.substr(path.find_last_of('/') + 1);
+}
+
+Chord PianoRoll::get_chord() const
+{
+    if (m_transcriber == nullptr)
+    {
+        return { Letter::none, ChordType::other, -1.f, -1.f, -1.f };
+    }
+    for (Chord chord : m_transcriber->get_chords())
+    {
+        if (chord.end_time >= m_time)
+        {
+            return chord;
+        }
+    }
+    return { Letter::none, ChordType::other, -1.f, -1.f, -1.f };
 }
 
 bool PianoRoll::is_playing() const

@@ -2,8 +2,11 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
 
 #include <onnxruntime_cxx_api.h>
+
+#include "../util/chord.hpp"
 
 struct Note
 {
@@ -28,6 +31,8 @@ public:
 
     const std::vector<std::vector<Note>>& get_notes() const;
 
+    const std::vector<Chord>& get_chords() const;
+
     unsigned get_note_count() const;
 
     void set_options(TranscriberOptions options);
@@ -40,6 +45,9 @@ private:
 
     // [key 0-87][note]
     std::vector<std::vector<Note>> m_notes;
+
+    // sorted by time
+    std::vector<Chord> m_chords;
 
     // [key 0-87][frame]
     std::vector<std::vector<float>> m_frame_probs;
@@ -54,6 +62,8 @@ private:
     void filter_out_overtones();
 
     void filter_out_overtones(Note fundamental, int target_key);
+
+    void generate_chords();
 
     // needed for basic pitch
     inline static const int s_chunk_size { 43844 };
@@ -82,6 +92,16 @@ private:
 
     static std::string s_contour_name;
 
+    static std::unordered_map<ChordType, std::vector<bool>> s_chord_shapes;
+
+    static std::unordered_map<std::string, int> s_interval_to_index;
+
     static void init_ort(const std::string& model_path);
+
+    static void init_chord_shapes();
+
+    static void define_chord_shape(ChordType type, std::vector<std::string> shape);
+
+    static ChordProbability get_chord_probability(ChordType type, std::vector<float> weights);
 
 };
