@@ -397,18 +397,18 @@ float PianoRoll::get_key_x_pos(unsigned key)
     float black_key_width { get_black_key_width() };
     switch (pitch.letter)
     {
-        case Letter::A:     return (7 * pitch.octave) * white_key_width;
-        case Letter::B:     return (7 * pitch.octave + 1) * white_key_width;
-        case Letter::C:     return (7 * pitch.octave - 5) * white_key_width;
-        case Letter::D:     return (7 * pitch.octave - 4) * white_key_width;
-        case Letter::E:     return (7 * pitch.octave - 3) * white_key_width;
-        case Letter::F:     return (7 * pitch.octave - 2) * white_key_width;
-        case Letter::G:     return (7 * pitch.octave - 1) * white_key_width;
-        case Letter::As:    return (7 * pitch.octave + 1) * white_key_width - (0.5f * black_key_width);
-        case Letter::Cs:    return (7 * pitch.octave - 4) * white_key_width - (0.5f * black_key_width);
-        case Letter::Ds:    return (7 * pitch.octave - 3) * white_key_width - (0.5f * black_key_width);
-        case Letter::Fs:    return (7 * pitch.octave - 1) * white_key_width - (0.5f * black_key_width);
-        case Letter::Gs:    return (7 * pitch.octave) * white_key_width - (0.5f * black_key_width);
+        case Letter::a:     return (7 * pitch.octave) * white_key_width;
+        case Letter::b:     return (7 * pitch.octave + 1) * white_key_width;
+        case Letter::c:     return (7 * pitch.octave - 5) * white_key_width;
+        case Letter::d:     return (7 * pitch.octave - 4) * white_key_width;
+        case Letter::e:     return (7 * pitch.octave - 3) * white_key_width;
+        case Letter::f:     return (7 * pitch.octave - 2) * white_key_width;
+        case Letter::g:     return (7 * pitch.octave - 1) * white_key_width;
+        case Letter::as:    return (7 * pitch.octave + 1) * white_key_width - (0.5f * black_key_width);
+        case Letter::cs:    return (7 * pitch.octave - 4) * white_key_width - (0.5f * black_key_width);
+        case Letter::ds:    return (7 * pitch.octave - 3) * white_key_width - (0.5f * black_key_width);
+        case Letter::fs:    return (7 * pitch.octave - 1) * white_key_width - (0.5f * black_key_width);
+        case Letter::gs:    return (7 * pitch.octave) * white_key_width - (0.5f * black_key_width);
     }
     return -1.f;
 }

@@ -2,7 +2,7 @@
 
 enum class Letter
 {
-    C, Cs, D, Ds, E, F, Fs, G, Gs, A, As, B
+    a, as, b, c, cs, d, ds, e, f, fs, g, gs, none
 };
 
 struct Pitch
@@ -23,18 +23,18 @@ constexpr Pitch key_to_pitch(int key)
     Letter letter { };
     switch ((key + 21) % 12)
     {
-        case 0:     letter = Letter::C;     break;
-        case 1:     letter = Letter::Cs;    break;
-        case 2:     letter = Letter::D;     break;
-        case 3:     letter = Letter::Ds;    break;
-        case 4:     letter = Letter::E;     break;
-        case 5:     letter = Letter::F;     break;
-        case 6:     letter = Letter::Fs;    break;
-        case 7:     letter = Letter::G;     break;
-        case 8:     letter = Letter::Gs;    break;
-        case 9:     letter = Letter::A;     break;
-        case 10:    letter = Letter::As;    break;
-        case 11:    letter = Letter::B;     break;
+        case 0:     letter = Letter::c;     break;
+        case 1:     letter = Letter::cs;    break;
+        case 2:     letter = Letter::d;     break;
+        case 3:     letter = Letter::ds;    break;
+        case 4:     letter = Letter::e;     break;
+        case 5:     letter = Letter::f;     break;
+        case 6:     letter = Letter::fs;    break;
+        case 7:     letter = Letter::g;     break;
+        case 8:     letter = Letter::gs;    break;
+        case 9:     letter = Letter::a;     break;
+        case 10:    letter = Letter::as;    break;
+        case 11:    letter = Letter::b;     break;
     }
     return Pitch { letter, (key + 21) / 12 - 1 };
 }
