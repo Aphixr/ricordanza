@@ -100,9 +100,10 @@ void App::run()
                 );
                 ImGui::Checkbox("Connect broken notes", &state_connect_broken_notes);
                 ImGui::Checkbox("Filter out harmonic overtones", &state_filter_overtones);
+                ImGui::Checkbox("Filter out blips", &state_filter_blips);
                 if (ImGui::Button("Transcribe"))
                 {
-                    piano_roll.transcribe_audio({ state_connect_broken_notes, state_filter_overtones });
+                    piano_roll.transcribe_audio({ state_connect_broken_notes, state_filter_overtones, state_filter_blips });
                     piano_roll.set_time(0.f);
                 }
                 ImGui::EndTabItem();

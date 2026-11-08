@@ -21,6 +21,7 @@ struct TranscriberOptions
 {
     bool connect_broken_notes;
     bool filter_out_overtones;
+    bool filter_out_blips;
 };
 
 class Transcriber
@@ -64,6 +65,8 @@ private:
 
     // start and end are the timestamps to examine in seconds
     void filter_out_overtones(float start_time, float end_time, int target_key);
+
+    void filter_out_blips();
 
     void connect_broken_notes();
 

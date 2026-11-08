@@ -53,7 +53,9 @@ private:
 
     inline static bool state_connect_broken_notes { true };
 
-    inline static bool state_filter_overtones { false };
+    inline static bool state_filter_overtones { true };
+
+    inline static bool state_filter_blips { true };
 
     inline static int state_num_threads { 2 };
 

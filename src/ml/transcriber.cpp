@@ -210,6 +210,11 @@ void Transcriber::run(const std::vector<float>& raw)
         connect_broken_notes();
     }
 
+    if (m_options.filter_out_blips)
+    {
+        filter_out_blips();
+    }
+
     generate_chords();
 }
 
@@ -416,6 +421,72 @@ void Transcriber::filter_out_overtones(float start_time, float end_time, int tar
             i--;
         }
     }
+}
+
+void Transcriber::filter_out_blips()
+{
+    Logger::info("filtering out blips...");
+
+    for (int key { 0 }; key < 88; key++)
+    {
+        std::vector<Note> connected_notes { };
+
+        for (int i { 0 }; i < (int)(m_notes[key].size()); i++)
+        {
+            Note& curr { m_notes[key][i] };
+
+            std::vector<Note> connected_notes { curr };
+
+            // find all connected notes
+            // but break if it finds a note with high onset probability
+            bool high_onset_found { false };
+            for (int j { i + 1 }; j < (int)(m_notes[key].size()); j++)
+            {
+                Note& next { m_notes[key][j] };
+
+                // end of connected notes
+                if (next.start_time - curr.end_time > 1.5f * s_frame_duration)
+                {
+                    break;
+                }
+
+                // disregard connected notes if it finds a note with high onset probability
+                if (next.onset_prob > 0.5f)
+                {
+                    high_onset_found = true;
+                    break;
+                }
+
+                connected_notes.push_back(next);
+            }
+
+            if (high_onset_found)
+            {
+                continue;
+            }
+
+            // if the connected notes are too short, and there is enough silence before and after them, remove them
+            float curr_start { connected_notes.front().start_time };
+            float curr_end { connected_notes.back().end_time };
+            if (curr_end - curr_start < 5.5f * s_frame_duration)
+            {
+                float prev_end { i == 0 ? 0.f : m_notes[key][i - 1].end_time };
+                float next_start { curr_end == m_notes[key].back().end_time ? curr_end + 1.f : m_notes[key][i + connected_notes.size()].start_time };
+
+                if (curr_start - prev_end > 0.5f && next_start - curr_end > 0.5f)
+                {
+                    // erase all connected notes
+                    for (int j { 0 }; j < (int)(connected_notes.size()); j++)
+                    {
+                        m_notes[key].erase(m_notes[key].begin() + i);
+                    }
+                    i--;
+                }
+            }
+        }
+    }
+
+    Logger::info("done: filtered out blips (" + std::to_string(get_note_count()) + " notes)");
 }
 
 void Transcriber::connect_broken_notes()
