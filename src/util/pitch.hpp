@@ -38,3 +38,23 @@ constexpr Pitch key_to_pitch(int key)
     }
     return Pitch { letter, (key + 21) / 12 - 1 };
 }
+
+constexpr std::string key_to_letter_string(int key)
+{
+    switch ((key + 21) % 12)
+    {
+        case 0:     return "C";
+        case 1:     return "D-flat";
+        case 2:     return "D";
+        case 3:     return "E-flat";
+        case 4:     return "E";
+        case 5:     return "F";
+        case 6:     return "F-sharp";
+        case 7:     return "G";
+        case 8:     return "A-flat";
+        case 9:     return "A";
+        case 10:    return "B-flat";
+        case 11:    return "B";
+    }
+    return ""; // this should be unreachable, but it satisfies compiler
+}
