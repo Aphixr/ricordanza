@@ -205,6 +205,11 @@ void Transcriber::run(const std::vector<float>& raw)
         filter_out_overtones();
     }
 
+    if (m_options.connect_broken_notes)
+    {
+        connect_broken_notes();
+    }
+
     generate_chords();
 }
 
@@ -364,6 +369,26 @@ void Transcriber::filter_out_overtones(Note fundamental, int target_key)
             i--;
         }
     }
+}
+
+void Transcriber::connect_broken_notes()
+{
+    Logger::info("connecting broken notes...");
+
+    for (int key { 0 }; key < 88; key++)
+    {
+        for (int i { 0 }; i < (int)(m_notes[key].size()) - 1; i++)
+        {
+            Note& curr { m_notes[key][i] };
+            Note& next { m_notes[key][i + 1] };
+            if (next.start_time - curr.end_time < 0.2f)
+            {
+                curr.end_time = next.start_time;
+            }
+        }
+    }
+
+    Logger::info("done: connected broken notes");
 }
 
 // Looks at 0.1s chunks at a time, and each chunk are offset by 0.1s, regardless of chunk size.

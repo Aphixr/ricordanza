@@ -51,6 +51,8 @@ private:
 
     inline static std::string state_file_path { "" };
 
+    inline static bool state_connect_broken_notes { true };
+
     inline static bool state_filter_overtones { false };
 
     inline static int state_num_threads { 2 };

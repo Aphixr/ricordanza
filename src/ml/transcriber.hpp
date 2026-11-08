@@ -19,6 +19,7 @@ struct Note
 
 struct TranscriberOptions
 {
+    bool connect_broken_notes;
     bool filter_out_overtones;
 };
 
@@ -62,6 +63,8 @@ private:
     void filter_out_overtones();
 
     void filter_out_overtones(Note fundamental, int target_key);
+
+    void connect_broken_notes();
 
     void generate_chords();
 

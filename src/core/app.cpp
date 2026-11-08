@@ -88,20 +88,21 @@ void App::run()
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::Begin("Menu", &yes, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
         if (ImGui::BeginTabBar("Tabs", ImGuiTabBarFlags_None))
         {
-            if (ImGui::BeginTabItem("Audio"))
+            if (ImGui::BeginTabItem("Load"))
             {
                 ImGui::Text("%s",
                     piano_roll.get_file_name() != ""
                     ? ("File: " + piano_roll.get_file_name()).c_str()
                     : "Drag and drop an audio file (.mp3, .wav, .flac) to load it."
                 );
+                ImGui::Checkbox("Connect broken notes", &state_connect_broken_notes);
                 ImGui::Checkbox("Filter out harmonic overtones (experimental)", &state_filter_overtones);
                 if (ImGui::Button("Transcribe"))
                 {
-                    piano_roll.transcribe_audio({ state_filter_overtones });
+                    piano_roll.transcribe_audio({ state_connect_broken_notes, state_filter_overtones });
                     piano_roll.set_time(0.f);
                 }
                 ImGui::EndTabItem();
