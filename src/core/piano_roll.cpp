@@ -269,11 +269,22 @@ void PianoRoll::render()
 {
     if (!m_audio->is_playing())
     {
-        if (App::is_key_pressed(GLFW_KEY_LEFT) || App::is_key_pressed(GLFW_KEY_DOWN))
+        if (App::is_key_pressed(GLFW_KEY_LEFT_CONTROL) || App::is_key_pressed(GLFW_KEY_RIGHT_CONTROL))
+        {
+            if (App::is_key_pressed(GLFW_KEY_UP))
+            {
+                m_pixels_per_second_vel = +1.5f;
+            }
+            if (App::is_key_pressed(GLFW_KEY_DOWN))
+            {
+                m_pixels_per_second_vel = -1.5f;
+            }
+        }
+        else if (App::is_key_pressed(GLFW_KEY_LEFT) || App::is_key_pressed(GLFW_KEY_DOWN))
         {
             m_scroll_vel = -0.2f;
         }
-        if (App::is_key_pressed(GLFW_KEY_RIGHT) || App::is_key_pressed(GLFW_KEY_UP))
+        else if (App::is_key_pressed(GLFW_KEY_RIGHT) || App::is_key_pressed(GLFW_KEY_UP))
         {
             m_scroll_vel = +0.2f;
         }
