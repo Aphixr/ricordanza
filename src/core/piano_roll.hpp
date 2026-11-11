@@ -43,11 +43,19 @@ public:
 
     void set_pixels_per_second(float pps);
 
+    void set_max_onset_color(const glm::vec4& color);
+
+    void set_min_onset_color(const glm::vec4& color);
+
     void play();
 
     void pause();
 
     void render();
+
+    inline static const glm::vec4 default_min_onset_color { 0.0f, 0.4f, 1.2f, 1.f };
+    
+    inline static const glm::vec4 default_max_onset_color { 1.1f, 0.1f, -0.1f, 1.f };
 
     // returns x position of left edge of key
     static float get_key_x_pos(unsigned pitch);
@@ -97,5 +105,9 @@ private:
     gl::Buffer m_inst_vbo;
 
     glm::mat4 m_projection;
+
+    glm::vec4 m_max_onset_color { default_max_onset_color };
+
+    glm::vec4 m_min_onset_color { default_min_onset_color };
 
 };

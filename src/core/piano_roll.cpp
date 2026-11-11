@@ -247,6 +247,16 @@ void PianoRoll::set_pixels_per_second(float pps)
     m_pixels_per_second_vel += (pps - m_pixels_per_second) / 10.f;
 }
 
+void PianoRoll::set_max_onset_color(const glm::vec4& color)
+{
+    m_max_onset_color = color;
+}
+
+void PianoRoll::set_min_onset_color(const glm::vec4& color)
+{
+    m_min_onset_color = color;
+}
+
 void PianoRoll::play()
 {
     if (m_audio == nullptr || m_audio->is_playing())
@@ -362,11 +372,12 @@ void PianoRoll::render()
                 m_note_index++;
             }
 
-            glm::vec3 color { 0.1f + note.onset_prob, 0.1f + (0.3f - 0.3f * note.onset_prob), 1.1f - note.onset_prob };
             glm::mat4 model ( 1.0f );
             model = glm::translate(model, glm::vec3(x, y, 0.f));
             model = glm::scale(model, glm::vec3(width, height, 1.f));
-            inst_data.emplace_back(model, glm::vec4(color, 1.f));
+
+            glm::vec4 color { m_min_onset_color + (m_max_onset_color - m_min_onset_color) * note.onset_prob };
+            inst_data.emplace_back(model, color);
 
             if ((m_pixels_per_second > 0 && y < keyboard_top) || (m_pixels_per_second <= 0 && y + height < keyboard_top))
             {

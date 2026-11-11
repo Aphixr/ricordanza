@@ -121,6 +121,7 @@ void App::run()
                         piano_roll.play();
                     }
                 }
+                
                 if (ImGui::ArrowButton("-5 seconds", ImGuiDir_Left))
                 {
                     piano_roll.set_time(piano_roll.get_time() - 5.f);
@@ -137,6 +138,7 @@ void App::run()
                     piano_roll.get_note_index(),
                     piano_roll.get_note_count()
                 );
+
                 if (ImGui::ArrowButton("-15\% pps", ImGuiDir_Left))
                 {
                     piano_roll.set_pixels_per_second(piano_roll.get_pixels_per_second() - 15.f);
@@ -148,11 +150,35 @@ void App::run()
                 }
                 ImGui::SameLine();
                 ImGui::Text("%d pixels per second", (int)piano_roll.get_pixels_per_second());
+
+                ImGui::PushItemWidth(90.f);
+
+                ImGui::SliderFloat("##minr", &state_min_onset_color[0], -0.2f, 1.2f, "%.2f");
+                ImGui::SameLine();
+                ImGui::SliderFloat("##ming", &state_min_onset_color[1], -0.2f, 1.2f, "%.2f");
+                ImGui::SameLine();
+                ImGui::SliderFloat("##minb", &state_min_onset_color[2], -0.2f, 1.2f, "%.2f");
+                ImGui::SameLine();
+                ImGui::Text("Min onset color");
+                piano_roll.set_min_onset_color(state_min_onset_color);
+
+                ImGui::SliderFloat("##maxr", &state_max_onset_color[0], -0.2f, 1.2f, "%.2f");
+                ImGui::SameLine();
+                ImGui::SliderFloat("##maxg", &state_max_onset_color[1], -0.2f, 1.2f, "%.2f");
+                ImGui::SameLine();
+                ImGui::SliderFloat("##maxb", &state_max_onset_color[2], -0.2f, 1.2f, "%.2f");
+                ImGui::SameLine();
+                ImGui::Text("Max onset color");
+                piano_roll.set_max_onset_color(state_max_onset_color);
+
+                ImGui::PopItemWidth();
+
                 ImGui::Text("Chord: %s %s (confidence: %.3f)",
                     key_to_letter_string((int)piano_roll.get_chord().root).c_str(),
                     chord_type_to_string(piano_roll.get_chord().type).c_str(),
                     piano_roll.get_chord().prob
                 );
+
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Log"))

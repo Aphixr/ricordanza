@@ -5,6 +5,8 @@
 #include <unordered_set>
 #include <utility>
 
+#include <glm/glm.hpp>
+
 #include "window.hpp"
 #include "piano_roll.hpp"
 
@@ -33,9 +35,9 @@ public:
 
 private:
 
-    inline static unsigned window_width { 1280 };
+    inline static unsigned window_width { 800 };
 
-    inline static unsigned window_height { 720 };
+    inline static unsigned window_height { 600 };
 
     inline static Window window { "Ricordanza", window_width, window_height };
 
@@ -58,6 +60,10 @@ private:
     inline static bool state_filter_blips { true };
 
     inline static int state_num_threads { 2 };
+
+    inline static glm::vec4 state_max_onset_color { PianoRoll::default_max_onset_color };
+
+    inline static glm::vec4 state_min_onset_color { PianoRoll::default_min_onset_color };
 
     inline static bool yes { true };
 
