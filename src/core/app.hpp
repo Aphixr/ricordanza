@@ -69,6 +69,8 @@ private:
 
     inline static glm::vec4 state_min_onset_color { PianoRoll::default_min_onset_color };
 
+    inline static float state_bloom_intensity { 1.5f };
+
     inline static bool yes { true };
 
     static void window_size_callback(GLFWwindow*, int width, int height);

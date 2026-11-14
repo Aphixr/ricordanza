@@ -47,6 +47,8 @@ public:
 
     void set_min_onset_color(const glm::vec4& color);
 
+    void set_bloom_intensity(float intensity);
+
     void play();
 
     void pause();
@@ -94,9 +96,15 @@ private:
 
     gl::Program m_notes_program;
 
+    gl::Program m_composite_program;
+
+    gl::Program m_blur_program;
+
     gl::VertexArray m_vao;
 
     gl::VertexArray m_notes_vao;
+
+    gl::VertexArray m_quad_vao;
 
     gl::Buffer m_vbo;
 
@@ -104,10 +112,22 @@ private:
 
     gl::Buffer m_inst_vbo;
 
+    gl::Buffer m_quad_vbo;
+
+    gl::Framebuffer m_note_fbo;
+
+    gl::Framebuffer m_ping_pong_fbos[2];
+
+    gl::Texture2D m_note_color_texture;
+
+    gl::Texture2D m_ping_pong_textures[2];
+
     glm::mat4 m_projection;
 
     glm::vec4 m_max_onset_color { default_max_onset_color };
 
     glm::vec4 m_min_onset_color { default_min_onset_color };
+
+    float m_bloom_intensity;
 
 };

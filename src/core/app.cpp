@@ -81,7 +81,7 @@ void App::run()
 {
     while (!window.shouldClose())
     {
-        glClearColor(0.133f, 0.133f, 0.133f, 1.0f);
+        glClearColor(0.f, 0.f, 0.f, 1.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         for (std::function<void ()>& callback : on_render_callbacks)
@@ -175,6 +175,11 @@ void App::run()
                 ImGui::SameLine();
                 ImGui::Text("Max onset color");
                 piano_roll.set_max_onset_color(state_max_onset_color);
+
+                ImGui::SliderFloat("##bloomintensity", &state_bloom_intensity, 0.f, 5.f, "%.2f");
+                ImGui::SameLine();
+                ImGui::Text("Bloom intensity");
+                piano_roll.set_bloom_intensity(state_bloom_intensity);
 
                 ImGui::PopItemWidth();
 

@@ -24,6 +24,18 @@ float vertices[]
     1.f, 0.f
 };
 
+float quad_vertices[]
+{
+    // positions   // tex coords
+    -1.0f,  1.0f,  0.0f, 1.0f,
+    -1.0f, -1.0f,  0.0f, 0.0f,
+     1.0f, -1.0f,  1.0f, 0.0f,
+
+    -1.0f,  1.0f,  0.0f, 1.0f,
+     1.0f, -1.0f,  1.0f, 0.0f,
+     1.0f,  1.0f,  1.0f, 1.0f
+};
+
 struct InstanceData
 {
     glm::mat4 model;
@@ -41,15 +53,37 @@ PianoRoll::PianoRoll()
     , m_is_ready { false }
     , m_piano_program { }
     , m_notes_program { }
+    , m_composite_program { }
+    , m_blur_program { }
     , m_vao { }
+    , m_notes_vao { }
+    , m_quad_vao { }
     , m_vbo { GL_ARRAY_BUFFER }
     , m_notes_vbo { GL_ARRAY_BUFFER }
     , m_inst_vbo { GL_ARRAY_BUFFER }
+    , m_quad_vbo { GL_ARRAY_BUFFER }
+    , m_note_fbo { }
+    , m_ping_pong_fbos { }
+    , m_note_color_texture { }
+    , m_ping_pong_textures { }
     , m_projection { glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f) }
+    , m_bloom_intensity { 1.5f }
 {
     m_piano_program.attach(ShaderManager::get("default.vert.glsl"));
     m_piano_program.attach(ShaderManager::get("solid.frag.glsl"));
     m_piano_program.link();
+
+    m_notes_program.attach(ShaderManager::get("instance.vert.glsl"));
+    m_notes_program.attach(ShaderManager::get("instance.frag.glsl"));
+    m_notes_program.link();
+
+    m_composite_program.attach(ShaderManager::get("post.vert.glsl"));
+    m_composite_program.attach(ShaderManager::get("composite.frag.glsl"));
+    m_composite_program.link();
+
+    m_blur_program.attach(ShaderManager::get("post.vert.glsl"));
+    m_blur_program.attach(ShaderManager::get("blur.frag.glsl"));
+    m_blur_program.link();
 
     m_vao.bind();
     m_vbo.bind();
@@ -58,10 +92,6 @@ PianoRoll::PianoRoll()
     m_vao.enable_attribute_array(0);
     m_vao.unbind();
     m_vbo.unbind();
-
-    m_notes_program.attach(ShaderManager::get("instance.vert.glsl"));
-    m_notes_program.attach(ShaderManager::get("instance.frag.glsl"));
-    m_notes_program.link();
 
     m_notes_vao.bind();
     m_notes_vbo.bind();
@@ -80,6 +110,42 @@ PianoRoll::PianoRoll()
     m_notes_vao.attribute_divisor(5, 1);
     m_notes_vao.unbind();
     m_inst_vbo.unbind();
+
+    m_quad_vao.bind();
+    m_quad_vbo.bind();
+    m_quad_vbo.data(sizeof(quad_vertices), quad_vertices, GL_STATIC_DRAW);
+    m_quad_vao.attribute(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    m_quad_vao.enable_attribute_array(0);
+    m_quad_vao.attribute(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    m_quad_vao.enable_attribute_array(1);
+    m_quad_vao.unbind();
+    m_quad_vbo.unbind();
+
+    m_note_fbo.bind();
+    m_note_color_texture.bind();
+    m_note_color_texture.set_size(App::get_window_width(), App::get_window_height());
+    m_note_color_texture.data(0, GL_RGBA16F, GL_RGBA, GL_FLOAT, NULL);
+    m_note_color_texture.set_wrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+    m_note_color_texture.set_filter(GL_LINEAR, GL_LINEAR);
+    m_note_fbo.attach_texture_2d(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_note_color_texture.get_id(), 0);
+
+    for (int i { 0 }; i < 2; i++)
+    {
+        m_ping_pong_fbos[i].bind();
+        m_ping_pong_textures[i].bind();
+        m_ping_pong_textures[i].set_size(App::get_window_width() / 2, App::get_window_height() / 2);
+        m_ping_pong_textures[i].data(0, GL_RGBA16F, GL_RGBA, GL_FLOAT, NULL);
+        m_ping_pong_textures[i].set_wrap(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE);
+        m_ping_pong_textures[i].set_filter(GL_LINEAR, GL_LINEAR);
+        m_ping_pong_fbos[i].attach_texture_2d(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, m_ping_pong_textures[i].get_id(), 0);
+    }
+
+    m_ping_pong_fbos[1].unbind();
+    m_ping_pong_textures[1].unbind();
+
+    m_composite_program.use();
+    m_composite_program.set_uniform_1i("crisp_notes", 0);
+    m_composite_program.set_uniform_1i("bloom_blur", 1);
 
     App::on_key_down(GLFW_KEY_SPACE, [this]()
     {
@@ -112,6 +178,27 @@ PianoRoll::PianoRoll()
         {
             m_scroll_vel = 1.2f * y_offset * (100.f / m_pixels_per_second);
         }
+    });
+
+    App::on_window_resize([this](int width, int height)
+    {
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        m_note_color_texture.bind();
+        m_note_color_texture.set_size(width, height);
+        m_note_color_texture.data(0, GL_RGBA16F, GL_RGBA, GL_FLOAT, nullptr);
+
+        m_ping_pong_textures[0].bind();
+        m_ping_pong_textures[0].set_size(width / 2, height / 2);
+        m_ping_pong_textures[0].data(0, GL_RGBA16F, GL_RGBA, GL_FLOAT, nullptr);
+
+        m_ping_pong_textures[1].bind();
+        m_ping_pong_textures[1].set_size(width / 2, height / 2);
+        m_ping_pong_textures[1].data(0, GL_RGBA16F, GL_RGBA, GL_FLOAT, nullptr);
+        m_ping_pong_textures[1].unbind();
     });
 
     App::on_render([this]()
@@ -257,6 +344,11 @@ void PianoRoll::set_min_onset_color(const glm::vec4& color)
     m_min_onset_color = color;
 }
 
+void PianoRoll::set_bloom_intensity(float intensity)
+{
+    m_bloom_intensity = intensity;
+}
+
 void PianoRoll::play()
 {
     if (m_audio == nullptr || m_audio->is_playing())
@@ -311,12 +403,14 @@ void PianoRoll::render()
         m_scroll_vel = 0.f;
     }
 
-    Logger::update("timestamp"s, "timestamp: " + seconds_to_string(m_time) + " / " + seconds_to_string(m_audio->get_duration()));
-
     m_pixels_per_second += m_pixels_per_second_vel;
     m_pixels_per_second_vel *= 0.9f;
 
     m_projection = glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f);
+
+    m_note_fbo.bind();
+    constexpr GLfloat clear_color[] { 0.f, 0.f, 0.f, 0.f };
+    glClearBufferfv(GL_COLOR, 0, clear_color);
 
     // render note blocks
 
@@ -394,6 +488,48 @@ void PianoRoll::render()
     glDrawArraysInstanced(GL_TRIANGLES, 0, 6, inst_data.size());
     m_inst_vbo.unbind();
     m_notes_vao.unbind();
+
+    bool horizontal { true };
+    unsigned blurPasses { 12 };
+
+    glViewport(0, 0, App::get_window_width() / 2, App::get_window_height() / 2);
+
+    m_blur_program.use();
+    m_quad_vao.bind();
+    glActiveTexture(GL_TEXTURE0);
+
+    for (int i { 0 }; i < blurPasses; i++) {
+        m_ping_pong_fbos[horizontal].bind();
+        m_blur_program.set_uniform_1i("horizontal", horizontal);
+
+        if (i == 0)
+        {
+            m_note_color_texture.bind();
+        }
+        else
+        {
+            m_ping_pong_textures[!horizontal].bind();
+        }
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        horizontal = !horizontal;
+    }
+
+    glViewport(0, 0, App::get_window_width(), App::get_window_height());
+
+    m_note_fbo.unbind();
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    m_composite_program.use();
+    m_composite_program.set_uniform_1f("bloom_intensity", m_bloom_intensity);
+
+    m_note_color_texture.activate(GL_TEXTURE0);
+    m_note_color_texture.bind();
+    m_note_color_texture.activate(GL_TEXTURE1);
+    m_ping_pong_textures[!horizontal].bind();
+
+    m_quad_vao.bind();
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     // render piano keyboard
 
