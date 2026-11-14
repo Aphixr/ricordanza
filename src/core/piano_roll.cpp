@@ -47,8 +47,8 @@ PianoRoll::PianoRoll()
     , m_inst_vbo { GL_ARRAY_BUFFER }
     , m_projection { glm::ortho(0.f, (float)App::get_window_width(), 0.f, (float)App::get_window_height(), -1.f, 1.f) }
 {
-    m_piano_program.attach(ShaderManager::get("../res/default.vert.glsl"));
-    m_piano_program.attach(ShaderManager::get("../res/solid.frag.glsl"));
+    m_piano_program.attach(ShaderManager::get("default.vert.glsl"));
+    m_piano_program.attach(ShaderManager::get("solid.frag.glsl"));
     m_piano_program.link();
 
     m_vao.bind();
@@ -59,8 +59,8 @@ PianoRoll::PianoRoll()
     m_vao.unbind();
     m_vbo.unbind();
 
-    m_notes_program.attach(ShaderManager::get("../res/instance.vert.glsl"));
-    m_notes_program.attach(ShaderManager::get("../res/instance.frag.glsl"));
+    m_notes_program.attach(ShaderManager::get("instance.vert.glsl"));
+    m_notes_program.attach(ShaderManager::get("instance.frag.glsl"));
     m_notes_program.link();
 
     m_notes_vao.bind();

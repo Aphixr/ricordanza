@@ -7,14 +7,14 @@
 
 gl::Shader& ShaderManager::get(const std::string& path)
 {
-    Logger::info("loading shader '" + path + "'");
+    Logger::info("loading shader '../res/shaders/" + path + "'");
 
     if (get_map().contains(path))
     {
         return get_map().at(path);
     }
 
-    std::ifstream file_stream { path, std::ios::binary };
+    std::ifstream file_stream { "../res/shaders/" + path, std::ios::binary };
     if (!file_stream)
     {
         throw FileLoadFailureException(path);
