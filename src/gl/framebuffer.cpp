@@ -33,12 +33,12 @@ void Framebuffer::blit(GLint src_x0, GLint src_y0, GLint src_x1, GLint src_y1, G
     glBlitFramebuffer(src_x0, src_y0, src_x1, src_y1, dst_x0, dst_y0, dst_x1, dst_y1, mask, filter);
 }
 
-void Framebuffer::bind(GLenum target=GL_FRAMEBUFFER)
+void Framebuffer::bind(GLenum target)
 {
     glBindFramebuffer(target, m_id);
 }
 
-void Framebuffer::unbind(GLenum target=GL_FRAMEBUFFER)
+void Framebuffer::unbind(GLenum target)
 {
     glBindFramebuffer(target, 0);
 }
