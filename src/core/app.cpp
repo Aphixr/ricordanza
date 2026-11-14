@@ -47,6 +47,11 @@ int App::get_window_height()
     return window_height;
 }
 
+void App::on_window_resize(const std::function<void (int width, int height)>& callback)
+{
+    on_window_resize_callbacks.push_back(callback);
+}
+
 void App::on_render(const std::function<void()>& callback)
 {
     on_render_callbacks.push_back(callback);
@@ -204,6 +209,11 @@ void App::window_size_callback(GLFWwindow*, int width, int height)
     glViewport(0, 0, width, height);
     window_width = width;
     window_height = height;
+    
+    for (std::function<void (int, int)>& callback : on_window_resize_callbacks)
+    {
+        callback(width, height);
+    }
 }
 
 void App::key_down_callback(GLFWwindow*, int key, int scancode, int action, int mods)

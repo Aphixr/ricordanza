@@ -21,6 +21,8 @@ public:
 
     static int get_window_height();
 
+    static void on_window_resize(const std::function<void (int width, int height)>& callback);
+
     static void on_render(const std::function<void ()>& callback);
 
     static void on_key_down(int glfw_key_code, const std::function<void ()>& callback);
@@ -40,6 +42,8 @@ private:
     inline static unsigned window_height { 600 };
 
     inline static Window window { "Ricordanza", window_width, window_height };
+
+    inline static std::vector<std::function<void (int, int)>> on_window_resize_callbacks { };
 
     inline static std::vector<std::function<void ()>> on_render_callbacks { };
 
