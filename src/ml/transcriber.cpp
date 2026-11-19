@@ -28,7 +28,7 @@ void Transcriber::init_ort(const std::string& model_path)
 
     // 2 threads
     Ort::SessionOptions session_options;
-    session_options.SetIntraOpNumThreads(2);
+    session_options.SetIntraOpNumThreads(4);
 
     s_session = Ort::Session(s_env, model_path.c_str(), session_options);
 
@@ -149,7 +149,7 @@ void Transcriber::define_chord_shape(ChordType type, std::vector<std::string> sh
 }
 
 Transcriber::Transcriber()
-    : m_options { false }
+    : m_options { true, true, true }
     , m_notes { }
     , m_frame_probs { }
     , m_onset_probs { }
@@ -187,6 +187,11 @@ unsigned Transcriber::get_note_count() const
         count += key_notes.size();
     }
     return count;
+}
+
+float Transcriber::get_duration() const
+{
+    return m_frame_probs[0].size() * s_frame_duration;
 }
 
 void Transcriber::set_options(TranscriberOptions options)
@@ -265,6 +270,11 @@ void Transcriber::generate_probabilities(const std::vector<float>& raw)
 
 void Transcriber::generate_notes()
 {
+    generate_notes(get_duration());
+}
+
+void Transcriber::generate_notes(float last)
+{
     Logger::info("transcribing probabilities into vector of notes...");
 
     // generate notes
@@ -278,7 +288,7 @@ void Transcriber::generate_notes()
         float max_frame_prob { 0.f };
 
         // for each frame in time
-        for (int frame { 0 }; frame < m_frame_probs[key].size(); frame++)
+        for (int frame { std::max((int)(m_frame_probs[key].size() - (last / s_frame_duration)), 0) }; frame < m_frame_probs[key].size(); frame++)
         {
             float frame_prob { m_frame_probs[key][frame] };
             float onset_prob { m_onset_probs[key][frame] };
@@ -333,12 +343,17 @@ void Transcriber::generate_notes()
 
 void Transcriber::filter_out_overtones()
 {
+    filter_out_overtones(get_note_count());
+}
+
+void Transcriber::filter_out_overtones(int last)
+{
     Logger::info("filtering out harmonic overtones");
 
     // filter out harmonic overtones
     for (int key { 87 }; key >= 0; key--)
     {
-        for (int i { 0 }; i < m_notes[key].size(); i++)
+        for (int i { std::max((int)m_notes[key].size() - last, 0) }; i < m_notes[key].size(); i++)
         {
             float start { m_notes[key][i].start_time };
             float end { m_notes[key][i].end_time };
@@ -425,13 +440,18 @@ void Transcriber::filter_out_overtones(float start_time, float end_time, int tar
 
 void Transcriber::filter_out_blips()
 {
+    filter_out_blips(get_note_count());
+}
+
+void Transcriber::filter_out_blips(int last)
+{
     Logger::info("filtering out blips...");
 
     for (int key { 0 }; key < 88; key++)
     {
         std::vector<Note> connected_notes { };
 
-        for (int i { 0 }; i < (int)(m_notes[key].size()); i++)
+        for (int i { std::max((int)(m_notes[key].size()) - last, 0) }; i < (int)(m_notes[key].size()); i++)
         {
             Note& curr { m_notes[key][i] };
 
@@ -491,11 +511,16 @@ void Transcriber::filter_out_blips()
 
 void Transcriber::connect_broken_notes()
 {
+    connect_broken_notes(get_note_count());
+}
+
+void Transcriber::connect_broken_notes(int last)
+{
     Logger::info("connecting broken notes...");
 
     for (int key { 0 }; key < 88; key++)
     {
-        for (int i { 0 }; i < (int)(m_notes[key].size()) - 1; i++)
+        for (int i { std::max((int)(m_notes[key].size()) - last, 0) }; i < (int)(m_notes[key].size()) - 1; i++)
         {
             Note& curr { m_notes[key][i] };
             Note& next { m_notes[key][i + 1] };
@@ -525,10 +550,20 @@ void Transcriber::connect_broken_notes()
 // So, the larger chunks will attempt to fill up the gaps left by the smaller chunks, hopefully finding a real ChordType.
 void Transcriber::generate_chords()
 {
+    generate_chords(get_duration());
+}
+
+void Transcriber::generate_chords(float last)
+{
     const float chunk_size = 0.1f;
     const float chunk_offset = 0.1f;
 
-    for (float s { chunk_offset - chunk_size }; s + chunk_size < m_frame_probs[0].size() * s_frame_duration; s += chunk_offset)
+    for
+    (
+        float s { std::max(get_duration() - last, 0.f) + chunk_offset - chunk_size };
+        s + chunk_size < get_duration();
+        s += chunk_offset
+    )
     {
         const float start { std::max(s, 0.f) };
         const float end { s + chunk_size };

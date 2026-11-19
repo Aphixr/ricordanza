@@ -37,11 +37,13 @@ public:
 
     unsigned get_note_count() const;
 
+    float get_duration() const;
+
     void set_options(TranscriberOptions options);
 
-    void run(const std::vector<float>& raw);
+    virtual void run(const std::vector<float>& raw);
 
-private:
+protected:
 
     TranscriberOptions m_options;
 
@@ -61,16 +63,29 @@ private:
 
     void generate_notes();
 
+    // last in seconds
+    void generate_notes(float last);
+
     void filter_out_overtones();
+
+    // last in notes
+    void filter_out_overtones(int last);
 
     // start and end are the timestamps to examine in seconds
     void filter_out_overtones(float start_time, float end_time, int target_key);
 
     void filter_out_blips();
 
+    void filter_out_blips(int last);
+
     void connect_broken_notes();
 
+    void connect_broken_notes(int last);
+
     void generate_chords();
+
+    // last in seconds
+    void generate_chords(float last);
 
     // needed for basic pitch
     inline static const int s_chunk_size { 43844 };
