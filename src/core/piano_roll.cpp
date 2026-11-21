@@ -45,6 +45,8 @@ struct InstanceData
 PianoRoll::PianoRoll()
     : m_audio { nullptr }
     , m_transcriber { nullptr }
+    , m_live_audio { nullptr }
+    , m_live_transcriber { nullptr }
     , m_note_index { 0 }
     , m_time { 0.f }
     , m_scroll_vel { 0.f }
@@ -149,18 +151,28 @@ PianoRoll::PianoRoll()
 
     App::on_key_down(GLFW_KEY_SPACE, [this]()
     {
-        if (!m_is_ready)
+        if (m_audio)
         {
-            return;
+            if (!m_audio->is_playing())
+            {
+                m_time = std::max(m_time, 0.f);
+                m_audio->play(m_time);
+            }
+            else
+            {
+                m_audio->pause();
+            }
         }
-        if (!m_audio->is_playing())
+        else if (m_live_audio)
         {
-            m_time = std::max(m_time, 0.f);
-            m_audio->play(m_time);
-        }
-        else
-        {
-            m_audio->pause();
+            if (!m_live_audio->is_recording())
+            {
+                m_live_audio->start();
+            }
+            else
+            {
+                m_live_audio->stop();
+            }
         }
     });
 
@@ -213,15 +225,51 @@ PianoRoll::PianoRoll()
 
 PianoRoll::~PianoRoll()
 {
-    delete m_audio;
-    delete m_transcriber;
-    m_audio = nullptr;
-    m_transcriber = nullptr;
+    reset();
+}
+
+void PianoRoll::reset()
+{
+    Logger::info("resetting...");
+
+    m_is_ready = false;
+
+    if (m_audio != nullptr)
+    {
+        m_audio->pause();
+        delete m_audio;
+        m_audio = nullptr;
+    }
+    if (m_transcriber != nullptr)
+    {
+        delete m_transcriber;
+        m_transcriber = nullptr;
+    }
+
+    if (m_live_audio && m_live_audio->is_recording())
+    {
+        m_live_audio->stop();
+    }
+    if (m_live_transcriber != nullptr)
+    {
+        delete m_live_transcriber;
+        m_live_transcriber = nullptr;
+    }
+    if (m_live_audio != nullptr)
+    {
+        delete m_live_audio;
+        m_live_audio = nullptr;
+    }
+
+    m_time = 0;
+    m_scroll_vel = 0.f;
+
+    Logger::info("done: reset");
 }
 
 void PianoRoll::load_audio(std::string_view path)
 {
-    m_is_ready = false;
+    reset();
 
     if (m_audio != nullptr)
     {
@@ -243,11 +291,68 @@ void PianoRoll::transcribe_audio(TranscriberOptions options)
         Logger::info("load an audio file first before transcribing");
         return;
     }
-    delete m_transcriber;
+    if (m_transcriber != nullptr)
+    {
+        delete m_transcriber;
+    }
     m_transcriber = new Transcriber { };
     m_transcriber->set_options(options);
     m_transcriber->run(m_audio->get_data());
     m_is_ready = true;
+
+    // cool animation after loading
+    if (std::abs(m_time) < 1.f)
+    {
+        m_time = 30.f;
+    }
+    set_time(0.f);
+    set_pixels_per_second(100.f);
+}
+
+void PianoRoll::init_live_transcriber(TranscriberOptions options)
+{
+    reset();
+
+    Logger::info("initializing for live transcription...");
+
+    m_live_audio = new LiveAudio { };
+
+    m_live_transcriber = new LiveTranscriber { m_live_audio };
+    m_live_transcriber->set_options(options);
+
+    m_is_ready = true;
+
+    Logger::info("done: initialized for live transcription...");
+}
+
+void PianoRoll::start_live_transcriber()
+{
+    if (m_live_audio == nullptr || m_live_transcriber == nullptr)
+    {
+        Logger::info("LiveAudio and LiveTranscriber not initialized");
+        return;
+    }
+
+    // this makes note blocks move upward instead
+    if (m_pixels_per_second >= 0.f)
+    {
+        m_pixels_per_second *= -1.f;
+    }
+
+    m_live_audio->start();
+    m_live_transcriber->start();
+}
+
+void PianoRoll::stop_live_transcriber()
+{
+    if (m_live_audio == nullptr || m_live_transcriber == nullptr)
+    {
+        Logger::info("LiveAudio and LiveTranscriber not initialized");
+        return;
+    }
+
+    m_live_transcriber->stop();
+    m_live_audio->stop();
 }
 
 unsigned PianoRoll::get_note_index() const
@@ -257,11 +362,15 @@ unsigned PianoRoll::get_note_index() const
 
 unsigned PianoRoll::get_note_count() const
 {
-    if (m_transcriber == nullptr)
+    if (m_transcriber)
     {
-        return 0;
+        return m_transcriber->get_note_count();
     }
-    return m_transcriber->get_note_count();
+    if (m_live_transcriber)
+    {
+        return m_live_transcriber->get_note_count();
+    }
+    return 0;
 }
 
 float PianoRoll::get_time() const
@@ -271,11 +380,15 @@ float PianoRoll::get_time() const
 
 float PianoRoll::get_duration() const
 {
-    if (m_audio == nullptr)
+    if (m_audio)
     {
-        return 0.f;
+        return m_audio->get_duration();
     }
-    return m_audio->get_duration();
+    if (m_live_audio)
+    {
+        return m_live_audio->get_duration();
+    }
+    return 0.f;
 }
 
 float PianoRoll::get_pixels_per_second() const
@@ -312,6 +425,11 @@ Chord PianoRoll::get_chord() const
 bool PianoRoll::is_playing() const
 {
     return m_audio == nullptr ? false : m_audio->is_playing();
+}
+
+bool PianoRoll::is_recording() const
+{
+    return m_live_audio == nullptr ? false : m_live_audio->is_recording();
 }
 
 void PianoRoll::set_time(float time)
@@ -369,7 +487,7 @@ void PianoRoll::pause()
 
 void PianoRoll::render()
 {
-    if (!m_audio->is_playing())
+    if ((m_live_audio && !m_live_audio->is_recording()) || (m_audio && !m_audio->is_playing()))
     {
         if (App::is_key_pressed(GLFW_KEY_LEFT_CONTROL) || App::is_key_pressed(GLFW_KEY_RIGHT_CONTROL))
         {
@@ -393,7 +511,7 @@ void PianoRoll::render()
         m_time += m_scroll_vel;
         m_scroll_vel *= 0.9f;
     }
-    else
+    else if (m_audio && m_audio->is_playing())
     {
         // a scuffed hack to reduce possibility of a sudden flash of the wrong timestamp when playback begins
         if (std::abs(m_time - m_audio->get_time()) < 1.f)
@@ -401,6 +519,10 @@ void PianoRoll::render()
             m_time = m_audio->get_time();
         }
         m_scroll_vel = 0.f;
+    }
+    else if (m_live_audio && m_live_audio->is_recording())
+    {
+        m_time = m_live_audio->get_duration();
     }
 
     m_pixels_per_second += m_pixels_per_second_vel;
@@ -414,8 +536,16 @@ void PianoRoll::render()
 
     // render note blocks
 
+    Transcriber* transcriber { m_transcriber != nullptr ? m_transcriber : m_live_transcriber };
+
+    if (transcriber == nullptr)
+    {
+        Logger::info("oops something went wrong");
+        return;
+    }
+
     std::vector<InstanceData> inst_data;
-    inst_data.reserve(m_transcriber->get_note_count());
+    inst_data.reserve(transcriber->get_note_count());
 
     std::vector<glm::vec3> key_colors;
     key_colors.resize(88);
@@ -434,7 +564,9 @@ void PianoRoll::render()
             ? glm::vec3(0.92f, 0.92f, 0.92f)
             : glm::vec3(0.06f, 0.06f, 0.06f);
 
-        for (const Note& note : m_transcriber->get_notes()[key]) {
+        std::lock_guard<std::mutex> lock { LiveTranscriber::copy_mutex };
+
+        for (const Note& note : transcriber->get_notes()[key]) {
             // more dimensions of note block
             float y { keyboard_top + ((note.start_time - m_time) * m_pixels_per_second) };
             float height { (note.end_time - note.start_time + 0.02f) * m_pixels_per_second };

@@ -31,9 +31,11 @@ public:
 
     Transcriber();
 
-    const std::vector<std::vector<Note>>& get_notes() const;
+    virtual ~Transcriber() = default;
 
-    const std::vector<Chord>& get_chords() const;
+    virtual const std::vector<std::vector<Note>>& get_notes() const;
+
+    virtual const std::vector<Chord>& get_chords() const;
 
     unsigned get_note_count() const;
 

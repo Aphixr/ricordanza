@@ -96,21 +96,52 @@ void App::run()
         ImGui::Begin("Menu", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
         if (ImGui::BeginTabBar("Tabs", ImGuiTabBarFlags_None))
         {
-            if (ImGui::BeginTabItem("Load"))
+            if (ImGui::BeginTabItem("File"))
             {
                 ImGui::Text("%s",
                     piano_roll.get_file_name() != ""
                     ? ("File: " + piano_roll.get_file_name()).c_str()
                     : "Drag and drop an audio file (.mp3, .wav, .flac) to load it."
                 );
+
                 ImGui::Checkbox("Connect broken notes", &state_connect_broken_notes);
                 ImGui::Checkbox("Filter out harmonic overtones", &state_filter_overtones);
                 ImGui::Checkbox("Filter out blips", &state_filter_blips);
+
                 if (ImGui::Button("Transcribe"))
                 {
                     piano_roll.transcribe_audio({ state_connect_broken_notes, state_filter_overtones, state_filter_blips });
-                    piano_roll.set_time(0.f);
                 }
+                ImGui::SameLine();
+
+                if (ImGui::Button("Reset"))
+                {
+                    piano_roll.reset();
+                }
+
+                ImGui::EndTabItem();
+            }
+            if (ImGui::BeginTabItem("Live"))
+            {
+                ImGui::Text("Click start to transcribe live audio in real time.");
+
+                if (ImGui::Button("Start / Stop"))
+                {
+                    if (piano_roll.is_recording())
+                    {
+                        piano_roll.stop_live_transcriber();
+                    }
+                    else
+                    {
+                        piano_roll.start_live_transcriber();
+                    }
+                }
+
+                if (ImGui::Button("Initalize for Live Transcription"))
+                {
+                    piano_roll.init_live_transcriber();
+                }
+
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("View"))

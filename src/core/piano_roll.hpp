@@ -5,8 +5,10 @@
 #include <glm/glm.hpp>
 
 #include "../io/audio.hpp"
+#include "../io/live_audio.hpp"
 #include "../gl/glacier.hpp"
 #include "../ml/transcriber.hpp"
+#include "../ml/live_transcriber.hpp"
 #include "../util/chord.hpp"
 
 class PianoRoll
@@ -18,9 +20,17 @@ public:
 
     ~PianoRoll();
 
+    void reset();
+
     void load_audio(std::string_view path);
 
     void transcribe_audio(TranscriberOptions options);
+
+    void init_live_transcriber(TranscriberOptions options = { true, true, true });
+
+    void start_live_transcriber();
+
+    void stop_live_transcriber();
 
     unsigned get_note_index() const;
 
@@ -38,6 +48,9 @@ public:
     Chord get_chord() const;
 
     bool is_playing() const;
+
+    // is live audio currently capturing input
+    bool is_recording() const;
 
     void set_time(float time);
 
@@ -77,6 +90,12 @@ private:
 
     // transcribed data
     Transcriber* m_transcriber;
+
+    // live audio
+    LiveAudio* m_live_audio;
+
+    // live transcriber
+    LiveTranscriber* m_live_transcriber;
 
     unsigned m_note_index;
 
